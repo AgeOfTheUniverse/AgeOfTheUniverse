@@ -29,46 +29,33 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # Verbindungstatus prüfen
-        is_api = "lastdiasourcemjdtai" in df_raw.columns
-        if is_api:
-            st.success("Verbindung: Lasair Live")
-        else:
-            st.warning("Quelle: Backup-Daten")
-
-        st.divider()
-
-        # --- 1. METRICS BEREICH (OBEN) ---
-        st.subheader("Aktuelle Auswahl")
+        # 1. METRICS CONTAINER GANZ OBEN
         metric_container = st.container()
-        
         st.divider()
 
-        # --- 2. FILTER EINSTELLUNGEN ---
+        # 2. FILTER EINSTELLUNGEN
         st.subheader("Filter-Einstellungen")
         
-        # Der Master-Schalter für deine Logik (Standard: AN)
-        clean_default = st.checkbox("Nur valide Daten (H₀ & z vorhanden)", value=True)
+        # Master-Schalter: Wenn AUS, reagiert die Zahl sofort auf die 65 Basis-Objekte
+        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=True)
         
-        # Datenbasis für die Histogramme (alle 65 oder nur die 16 validen)
-        df_hist_base = df_raw.dropna(subset=['h0_estimate', 'z']) if clean_default else df_raw
+        # Datenbasis für die Histogramme bestimmen
+        df_hist_base = df_raw.dropna(subset=['h0_estimate', 'z']) if clean_active else df_raw
 
         # --- A. ROTVERSCHIEBUNG (z) ---
-        # Slider zuerst für die Logik
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
-        # Histogramm exakt bündig zum Slider
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        z_data = df_hist_base['z'].dropna()
-        if not z_data.empty:
-            counts, bins, patches = ax_z.hist(z_data, bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
-            # Dynamische Einfärbung: Blau wenn >= Slider, sonst Rot
+        # Wir nutzen df_hist_base für die visuelle Verteilung
+        z_values = df_hist_base['z'].dropna()
+        if not z_values.empty:
+            counts, bins, patches = ax_z.hist(z_values, bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if bin_edge >= z_min:
                     patch.set_facecolor('#4682B4')
                     patch.set_alpha(0.8)
                 else:
-                    patch.set_facecolor('#FF4B4B') # Streamlit-Rot
+                    patch.set_facecolor('#FF4B4B') # Rot für "Rausgefiltert"
                     patch.set_alpha(0.2)
         
         ax_z.set_xlim(0.0, 0.1)
@@ -80,9 +67,9 @@ def draw_sidebar(df_raw):
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
         fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
-        h_data = df_hist_base['h0_estimate'].dropna()
-        if not h_data.empty:
-            counts, bins, patches = ax_h.hist(h_data, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
+        h_values = df_hist_base['h0_estimate'].dropna()
+        if not h_values.empty:
+            counts, bins, patches = ax_h.hist(h_values, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if h0_range[0] <= bin_edge <= h0_range[1]:
                     patch.set_facecolor('#4682B4')
@@ -90,54 +77,47 @@ def draw_sidebar(df_raw):
                 else:
                     patch.set_facecolor('#FF4B4B')
                     patch.set_alpha(0.2)
-                    
+        
         ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_h)
 
-        # --- C. DATENQUALITÄT (ELITE) ---
+        # --- C. DATENQUALITÄT ---
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
-        
-        fig_q, ax_q = plt.subplots(figsize=(4, 0.8))
-        q_data = df_hist_base[col_n].dropna()
-        q_max = float(df_raw[col_n].max()) if not df_raw[col_n].empty else 100
-        if not q_data.empty:
-            ax_q.hist(q_data, bins=50, range=(0, q_max), color="#4682B4", alpha=0.6)
-            
-        ax_q.set_xlim(0, q_max)
-        ax_q.axis('off')
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        st.pyplot(fig_q)
 
-        # --- 3. FINALE FILTER-LOGIK (KEINE VERSTECKTEN FILTER!) ---
+        # --- DIE ENTSCHEIDENDE LOGIK ---
+        # Wir starten IMMER mit der Brutto-Basis von 65
         df_f = df_raw.copy()
         
-        if clean_default:
-            df_f = df_f.dropna(subset=['h0_estimate', 'z'])
-            
+        # Erst JETZT filtern wir nach den Slidern (auf Basis der 65!)
         df_f = df_f[
             (df_f['z'] >= z_min) & 
-            (df_f['h0_estimate'] >= h0_range[0]) & 
-            (df_f['h0_estimate'] <= h0_range[1])
+            (df_f['h0_estimate'].between(h0_range[0], h0_range[1]))
         ]
         
-        # Elite-Anzahl berechnen
-        anzahl_elite = 0
-        if not df_f.empty:
-            schwelle = np.percentile(df_f[col_n].dropna(), qual_p)
-            anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
+        # Erst ganz am Ende werfen wir die "Ungültigen" raus, wenn der Haken gesetzt ist
+        if clean_active:
+            df_f = df_f.dropna(subset=['h0_estimate', 'z'])
 
-        # Metrics in den oberen Container schreiben
+        # Elite Berechnung
+        anz_elite = 0
+        if not df_f.empty:
+            valid_n = df_f[col_n].dropna()
+            if not valid_n.empty:
+                schwelle = np.percentile(valid_n, qual_p)
+                anz_elite = len(df_f[df_f[col_n] >= schwelle])
+
+        # Metrics im Container anzeigen
         with metric_container:
             c1, c2 = st.columns(2)
             c1.metric("Basis (Gesamt)", len(df_raw))
-            # Delta zeigt jetzt genau an, wie viele durch Slider + Checkbox verloren gehen
+            # Jetzt wird das Delta zur Brutto-Basis (65) berechnet
             c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
-            st.metric("Elite-Auswahl", anzahl_elite)
-            
-        return z_min, h0_range, qual_p, df_f, anzahl_elite
+            st.metric("Elite-Auswahl", anz_elite)
+
+        return z_min, h0_range, qual_p, df_f, anz_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
