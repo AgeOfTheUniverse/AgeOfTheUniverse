@@ -21,7 +21,7 @@ def load_data():
     try:
         # 1. Verbindung aufbauen
         token = st.secrets["LASAIR_TOKEN"]
-        L = lasair.lasair_client(token)
+        L = lasair.lasair_client(token, endpoint='https://lasair-lsst.lsst.ac.uk/api')
         
         # 2. Abfrage (Query)
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
