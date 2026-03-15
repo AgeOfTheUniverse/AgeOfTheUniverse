@@ -29,89 +29,67 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. METRICS (Container für die Anzeige ganz oben)
+        # --- METRICS GANZ OBEN ---
         metric_container = st.container()
         st.divider()
 
-        # 2. DER MASTER-SCHALTER
         st.subheader("Filter-Einstellungen")
-        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=False) # Startwert FALSE zum Testen!
+        # WICHTIG: Der Schalter steuert nur die END-Auswahl
+        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=False)
         
-        # Basis für Histogramm: Wenn Checkbox aus, zeigen wir die Verteilung aller 65
-        df_hist_base = df_raw.dropna(subset=['h0_estimate', 'z']) if clean_active else df_raw
-
-        # --- A. ROTVERSCHIEBUNG (z) ---
+        # --- SLIDER ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
+        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
+        
+        # --- HISTOGRAMM LOGIK ---
+        # Wir zeigen im Histogramm IMMER alles an, was z und H0 Werte hat, 
+        # damit man sieht, wo man filtert.
+        df_hist = df_raw.dropna(subset=['z', 'h0_estimate'])
         
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        z_values = df_hist_base['z'].dropna()
-        if not z_values.empty:
-            # Wir nutzen 50 Bins für feine Auflösung
-            counts, bins, patches = ax_z.hist(z_values, bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
+        if not df_hist.empty:
+            counts, bins, patches = ax_z.hist(df_hist['z'], bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if bin_edge >= z_min:
-                    patch.set_facecolor('#4682B4') # Blau
+                    patch.set_facecolor('#4682B4')
                 else:
-                    patch.set_facecolor('#FF4B4B') # Rot
+                    patch.set_facecolor('#FF4B4B')
                     patch.set_alpha(0.2)
         ax_z.set_xlim(0.0, 0.1)
         ax_z.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_z)
 
-        # --- B. HUBBLE-KONSTANTE (H₀) ---
-        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
+        # --- DIE FILTER-RECHUNG (SCHRITT FÜR SCHRITT) ---
+        # Schritt A: Wir starten mit den rohen 65 Objekten
+        df_step1 = df_raw.copy()
         
-        fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
-        h_values = df_hist_base['h0_estimate'].dropna()
-        if not h_values.empty:
-            counts, bins, patches = ax_h.hist(h_values, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
-            for count, bin_edge, patch in zip(counts, bins, patches):
-                if h0_range[0] <= bin_edge <= h0_range[1]:
-                    patch.set_facecolor('#4682B4')
-                else:
-                    patch.set_facecolor('#FF4B4B')
-                    patch.set_alpha(0.2)
-        ax_h.set_xlim(20, 150)
-        ax_h.axis('off')
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        st.pyplot(fig_h)
-
-        # --- C. DATENQUALITÄT ---
-        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
-        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
-
-        # --- DIE KORRIGIERTE FILTER-LOGIK (Wichtigster Teil!) ---
-        # Schritt 1: Starte mit ALLEN 65
-        df_filtered = df_raw.copy()
+        # Schritt B: Wir filtern nach dem Slider (z-Wert)
+        # Wenn ein Objekt kein 'z' hat, wird es hier automatisch entfernt
+        df_step2 = df_step1[df_step1['z'] >= z_min]
         
-        # Schritt 2: Wende Slider-Filter auf die 65 an (VOR dem Checkbox-Filter)
-        df_filtered = df_filtered[
-            (df_filtered['z'] >= z_min) & 
-            (df_filtered['h0_estimate'].between(h0_range[0], h0_range[1]))
-        ]
+        # Schritt C: Wir filtern nach H0 Bereich
+        # Objekte ohne H0-Wert fliegen hier raus, falls h0_range nicht (0, 200) ist
+        df_step3 = df_step2[df_step2['h0_estimate'].between(h0_range[0], h0_range[1])]
         
-        # Schritt 3: Erst jetzt (optional) die NaNs rauswerfen
+        # Schritt D: Der zusätzliche "Valide"-Check
         if clean_active:
-            df_filtered = df_filtered.dropna(subset=['h0_estimate', 'z'])
+            df_final = df_step3.dropna(subset=['h0_estimate', 'z'])
+        else:
+            df_final = df_step3
 
-        # Elite-Berechnung
-        anz_elite = 0
-        if not df_filtered.empty:
-            valid_n = df_filtered[col_n].dropna()
-            if not valid_n.empty:
-                schwelle = np.percentile(valid_n, qual_p)
-                anz_elite = len(df_filtered[df_filtered[col_n] >= schwelle])
+        # Elite-Anzahl
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        anz_elite = len(df_final[df_final[col_n] >= np.percentile(df_final[col_n].fillna(0), 50)]) if not df_final.empty else 0
 
-        # Metrics im Container anzeigen
+        # Metrics füllen
         with metric_container:
             c1, c2 = st.columns(2)
-            c1.metric("Basis (Gesamt)", len(df_raw))
-            # Jetzt berechnet delta den Unterschied zwischen 65 und deinem aktuellen Filter
-            c2.metric("Aktiv", len(df_filtered), delta=len(df_filtered) - len(df_raw))
+            c1.metric("Basis (Gesamt)", len(df_raw)) # Hier MUSS 65 stehen
+            c2.metric("Aktiv", len(df_final), delta=len(df_final) - len(df_raw))
             st.metric("Elite-Auswahl", anz_elite)
 
-        return z_min, h0_range, qual_p, df_filtered, anz_elite
+        return z_min, h0_range, 50, df_final, anz_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
