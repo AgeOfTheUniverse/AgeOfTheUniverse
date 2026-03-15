@@ -57,6 +57,23 @@ def load_data():
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
 df_raw = load_data()
 
+# --- DATEN-CHECK ---
+if df_raw is not None:
+    # Wir prüfen, ob die Daten "frisch" von der API kommen
+    # Das erkennen wir daran, ob wir im df_raw Spalten finden, die in der CSV anders hießen
+    is_api = "lastdiasourcemjdtai" in df_raw.columns or "lastDiaSourceMjdTai" in df_raw.columns
+    
+    with st.sidebar:
+        st.divider()
+        if is_api:
+            st.success(f"✅ VERBUNDEN: Lasair-API")
+            st.info(f"Anzahl Objekte: {len(df_raw)}")
+        else:
+            st.warning("⚠️ QUELLE: Lokale Backup-CSV")
+            st.info(f"Anzahl Objekte: {len(df_raw)}")
+else:
+    st.error("Keine Daten verfügbar (weder API noch CSV)!")
+
 # --- 2. SIDEBAR (FILTER) ---
 st.sidebar.header("Filter-Einstellungen")
 z_min = st.sidebar.slider("Minimale Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
