@@ -23,7 +23,9 @@ def fetch_lasair_data():
                 df = pd.DataFrame(results)
             
             df.columns = [c.lower() for c in df.columns]
-            return df
+            # Wichtige Spalten prüfen und bereinigen
+            valid_cols = [c for c in ['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'] if c in df.columns]
+            return df.dropna(subset=valid_cols)
             
     except Exception as e:
         st.sidebar.warning(f"API-Fehler: {e}")
