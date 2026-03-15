@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import requests  # Neu für die API
+import requests  
+import lasair 
 
 st.set_page_config(layout="wide", page_title="Age of the Universe - Live Monitor")
 
@@ -17,42 +18,30 @@ Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasa
 # --- 1. DATEN LADEN (API + BACKUP) ---
 @st.cache_data(ttl=3600)
 def load_data():
-    # Token aus den Streamlit Secrets laden
-    # Falls lokal getestet wird, nutzt er eine lokale secrets.toml oder geht in den except-Block
     try:
+        # 1. Verbindung mit dem Token aus deinen Streamlit Secrets aufbauen
         token = st.secrets["LASAIR_TOKEN"]
-        headers = {'Authorization': f'Token {token}'}
-    except:
-        headers = {} # Fallback falls kein Token da ist
-
-    query = """
-    SELECT 
-    objects.objectId, objects.z, objects.h0_estimate, 
-    objects.nDiaSources, objects.lastDiaSourceMjdTai
-    FROM objects
-    WHERE objects.h0_estimate IS NOT NULL 
-    AND objects.z > 0
-    ORDER BY objects.lastDiaSourceMjdTai DESC
-    LIMIT 1000
-    """
-    url = "https://lasair-iris.stephane-paltani.ch/api/query/"
-    
-    try:
-        # Hier fügen wir die 'headers' mit dem Token hinzu
-        response = requests.post(url, data={'sql': query}, headers=headers, timeout=10)
-        if response.status_code == 200:
-            df = pd.DataFrame(response.json())
-            if not df.empty:
-                st.sidebar.success("📡 Live-Daten mit API-Token geladen")
-                return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
-        else:
-            st.sidebar.error(f"API Fehler {response.status_code}")
+        L = lasair.lasair_client(token)
+        
+        # 2. Die Abfrage definieren (nach dem neuen Schema der Doku)
+        selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
+        tables     = 'objects'
+        conditions = 'h0_estimate IS NOT NULL AND z > 0'
+        
+        # 3. Abfrage ausführen
+        results = L.query(selected, tables, conditions, limit=1000)
+        
+        if results:
+            df = pd.DataFrame(results)
+            st.sidebar.success("📡 Live-Daten via Lasair-Client geladen")
+            return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
+            
     except Exception as e:
-        st.sidebar.warning(f"API nicht erreichbar: {e}")
+        st.sidebar.warning(f"Lasair-Client Fehler: {e}")
 
-    # Backup-CSV
-    df = pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
-    return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
+    # Backup-CSV, falls der Client oder die API nicht will
+    return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
+
 df_raw = load_data()
 
 # --- 2. SIDEBAR (FILTER) ---
