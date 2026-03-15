@@ -29,6 +29,7 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
+        # Verbindungstatus
         is_api = "lastdiasourcemjdtai" in df_raw.columns
         if is_api:
             st.success("Verbindung: Lasair Live")
@@ -42,50 +43,77 @@ def draw_sidebar(df_raw):
         st.divider()
         st.subheader("Filter-Einstellungen")
 
-        # 1. Histogramm & Slider: z (Bereich 0.0 bis 0.1)
+        # 1. DER MASTER-SCHALTER
+        # Erklärt, warum von 65 evtl. nur 16 übrig bleiben
+        clean_default = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=True)
+        
+        # Datenbasis für Histogramme vorbereiten
+        # Wenn Schalter aus: Histogramm zeigt alle 65 (soweit Werte da)
+        # Wenn Schalter an: Histogramm zeigt nur die 16
+        df_hist = df_raw.dropna(subset=['h0_estimate', 'z']) if clean_default else df_raw
+
+        # --- HISTOGRAMME & SLIDER ---
+
+        # Rotverschiebung (z)
+        st.caption("Verteilung: Rotverschiebung (z)")
         fig_z, ax_z = plt.subplots(figsize=(4, 1))
-        # Range festlegen, damit x-Achse dem Slider entspricht
-        sns.histplot(df_raw['z'], bins=30, binrange=(0.0, 0.1), ax=ax_z, color="gray", alpha=0.4)
-        ax_z.set_xlim(0.0, 0.1) 
+        if not df_hist['z'].dropna().empty:
+            sns.histplot(df_hist['z'], bins=30, binrange=(0.0, 0.1), ax=ax_z, color="#4682B4", alpha=0.6)
+        ax_z.set_xlim(0.0, 0.1)
         ax_z.axis('off')
         st.pyplot(fig_z)
-        z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
+        z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.01)
 
-        # 2. Histogramm & Slider: H0 (Bereich 20 bis 150)
+        # Hubble-Konstante (H0)
+        st.caption("Verteilung: Hubble-Konstante (H₀)")
         fig_h, ax_h = plt.subplots(figsize=(4, 1))
-        sns.histplot(df_raw['h0_estimate'], bins=30, binrange=(20, 150), ax=ax_h, color="gray", alpha=0.4)
+        if not df_hist['h0_estimate'].dropna().empty:
+            sns.histplot(df_hist['h0_estimate'], bins=30, binrange=(20, 150), ax=ax_h, color="#4682B4", alpha=0.6)
         ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         st.pyplot(fig_h)
-        h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
+        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
 
-        # 3. Histogramm & Slider: Elite (Bereich 0 bis 100% bzw. Max nDiaSources)
+        # Datenqualität (Elite)
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        st.caption(f"Verteilung: Datenqualität ({col_n})")
         fig_q, ax_q = plt.subplots(figsize=(4, 1))
-        # Hier nutzen wir den tatsächlichen Datenbereich für das Histogramm
-        q_max = float(df_raw[col_n].max())
-        sns.histplot(df_raw[col_n], bins=30, binrange=(0, q_max), ax=ax_q, color="gray", alpha=0.4)
+        q_max = float(df_raw[col_n].max()) if not df_raw[col_n].empty else 100
+        sns.histplot(df_hist[col_n], bins=30, binrange=(0, q_max), ax=ax_q, color="#4682B4", alpha=0.6)
         ax_q.set_xlim(0, q_max)
         ax_q.axis('off')
         st.pyplot(fig_q)
-        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
+        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 0)
 
-        # BERECHNUNG
-        df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
+        # --- FINALE LOGIK-BERECHNUNG ---
+        df_f = df_raw.copy()
         
+        # A. Qualitäts-Filter
+        if clean_default:
+            df_f = df_f.dropna(subset=['h0_estimate', 'z'])
+        
+        # B. Slider-Filter
+        df_f = df_f[
+            (df_f['z'] >= z_min) & 
+            (df_f['h0_estimate'].between(h0_range[0], h0_range[1]))
+        ]
+
+        # C. Elite-Berechnung
         anzahl_elite = 0
         if not df_f.empty:
-            schwelle = np.percentile(df_f[col_n], qual_p)
+            # Wir brauchen die nDiaSources der aktuell gefilterten Menge
+            schwelle = np.percentile(df_f[col_n].dropna(), qual_p)
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
+        # --- METRICS ANZEIGE ---
         with metric_container:
             c1, c2 = st.columns(2)
-            c1.metric("Verwertbar", len(df_raw))
-            c2.metric("Gefiltert", len(df_f), delta=len(df_f) - len(df_raw))
+            c1.metric("Basis (Gesamt)", len(df_raw)) # Bleibt immer 65
+            c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
             st.metric("Elite-Auswahl", anzahl_elite)
         
         return z_min, h0_range, qual_p, df_f, anzahl_elite
-
+    
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
     st.title("🔭 age-of-the-universe.com")
