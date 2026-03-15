@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. DATEN LADEN (GECACHED) ---
+# --- 2. DATEN LADEN ---
 @st.cache_data(ttl=3600)
 def load_data():
     return fetch_lasair_data()
@@ -25,10 +25,10 @@ def load_data():
 df_raw = load_data()
 
 # --- 3. SIDEBAR FUNKTION ---
-with st.sidebar:
+def draw_sidebar(df_raw):
+    with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # Verbindungstatus
         is_api = "lastdiasourcemjdtai" in df_raw.columns
         if is_api:
             st.success("Verbindung: Lasair Live")
@@ -36,40 +36,37 @@ with st.sidebar:
             st.warning("Quelle: Backup-Daten")
 
         st.divider()
-
-        # --- DATEN-STATISTIK OBEN NEBENEINANDER ---
         st.subheader("Aktuelle Auswahl")
+        
+        # Platzhalter für die Zahlen (Metrics) ganz oben
         metric_container = st.container()
         
         st.divider()
         st.subheader("Filter-Einstellungen")
 
-        # 1. Histogramm & Slider für Rotverschiebung (z)
-        st.caption("Verteilung: Rotverschiebung")
-        fig_z, ax_z = plt.subplots(figsize=(4, 1.5))
-        sns.histplot(df_raw['z'], bins=20, ax=ax_z, color="gray", alpha=0.4)
-        ax_z.axis('off') # Schaltet Achsen für kompakte Optik aus
+        # 1. Histogramm & Slider: z
+        fig_z, ax_z = plt.subplots(figsize=(4, 1))
+        sns.histplot(df_raw['z'], bins=30, ax=ax_z, color="gray", alpha=0.4)
+        ax_z.axis('off')
         st.pyplot(fig_z)
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
 
-        # 2. Histogramm & Slider für H0 Bereich
-        st.caption("Verteilung: Hubble-Konstante")
-        fig_h, ax_h = plt.subplots(figsize=(4, 1.5))
-        sns.histplot(df_raw['h0_estimate'], bins=20, ax=ax_h, color="gray", alpha=0.4)
+        # 2. Histogramm & Slider: H0
+        fig_h, ax_h = plt.subplots(figsize=(4, 1))
+        sns.histplot(df_raw['h0_estimate'], bins=30, ax=ax_h, color="gray", alpha=0.4)
         ax_h.axis('off')
         st.pyplot(fig_h)
         h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
 
-        # 3. Histogramm & Slider für Elite-Schwelle (nDiaSources)
-        st.caption("Verteilung: Datenqualität (nDiaSources)")
+        # 3. Histogramm & Slider: Elite
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
-        fig_q, ax_q = plt.subplots(figsize=(4, 1.5))
-        sns.histplot(df_raw[col_n], bins=20, ax=ax_q, color="gray", alpha=0.4)
+        fig_q, ax_q = plt.subplots(figsize=(4, 1))
+        sns.histplot(df_raw[col_n], bins=30, ax=ax_q, color="gray", alpha=0.4)
         ax_q.axis('off')
         st.pyplot(fig_q)
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
 
-        # --- BERECHNUNG DER METRICS (NACH DEN SLIDERN) ---
+        # BERECHNUNG (muss innerhalb der Sidebar-Funktion nach den Slidern stehen)
         df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
         
         anzahl_elite = 0
@@ -77,39 +74,36 @@ with st.sidebar:
             schwelle = np.percentile(df_f[col_n], qual_p)
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
+        # Metrics in den Container schreiben (ganz oben in der Sidebar)
         with metric_container:
             c1, c2 = st.columns(2)
             c1.metric("Basis", len(df_raw))
             c2.metric("Gefiltert", len(df_f), delta=len(df_f) - len(df_raw))
             st.metric("Elite-Auswahl", anzahl_elite)
         
-        return z_min, h0_range, qual_p
+        return z_min, h0_range, qual_p, df_f, anzahl_elite
 
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
     st.title("🔭 age-of-the-universe.com")
     st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
     
-    # Sidebar aufrufen
-    z_min, h0_range, qual_p = draw_sidebar(df_raw)
-    
-    # Filterung anwenden
-    df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
+    # Sidebar aufrufen und alle berechneten Werte abholen
+    z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
 
     if df_f.empty:
         st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte Slider anpassen.")
         return
 
-    # Elite-Berechnung
+    # Elite-Berechnung für Plots
     col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
     schwelle = np.percentile(df_f[col_n], qual_p)
     df_elite = df_f[df_f[col_n] >= schwelle].copy()
-    
     h0_elite = df_elite['h0_estimate'].median()
     h0_alle = df_f['h0_estimate'].median()
 
     # --- TABELLE ---
-    st.subheader("Vergleich der kosmologischen Modelle")
+    st.subheader("Modellvergleich")
     vergleich_df = pd.DataFrame({
         "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
         "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
@@ -120,13 +114,11 @@ def main():
 
     # --- GRAFIKEN ---
     col_g1, col_g2 = st.columns(2)
-    
     with col_g1:
         st.write("### H₀ Verteilung (Elite)")
         fig1, ax1 = plt.subplots()
         sns.histplot(df_elite['h0_estimate'], kde=True, ax=ax1, color="skyblue")
         ax1.axvline(h0_elite, color="orange", linewidth=2, label=f"Median: {h0_elite:.1f}")
-        ax1.set_xlabel("Hubble-Konstante H₀")
         ax1.legend()
         st.pyplot(fig1)
 
@@ -136,7 +128,7 @@ def main():
         scatter = ax2.scatter(df_f['z'], df_f['h0_estimate'], alpha=0.4, c=df_f[col_n], cmap='viridis')
         ax2.set_xlabel("Rotverschiebung (z)")
         ax2.set_ylabel("H₀")
-        plt.colorbar(scatter, label="Datenqualität (nDiaSources)")
+        plt.colorbar(scatter, label="Datenqualität")
         st.pyplot(fig2)
 
     # --- STABILISIERUNG ---
@@ -145,31 +137,15 @@ def main():
     if 'running_median' in df_k.columns:
         fig3, ax3 = plt.subplots(figsize=(10, 4))
         time_x = next((c for c in df_k.columns if c.lower() == 'lastdiasourcemjdtai'), df_k.index)
-        ax3.plot(df_k[time_x], df_k['running_median'], color='purple', linewidth=2, label="Laufender Median")
-        ax3.fill_between(df_k[time_x], 
-                         df_k['running_median'] - df_k['stderr'], 
-                         df_k['running_median'] + df_k['stderr'], 
-                         alpha=0.2, color='purple')
-        ax3.axhline(67.4, color='red', linestyle='--', alpha=0.5, label="Planck")
-        ax3.axhline(73.0, color='green', linestyle='--', alpha=0.5, label="SH0ES")
-        ax3.set_xlabel("Zeit (MJD)")
-        ax3.set_ylabel("H₀")
-        ax3.legend()
+        ax3.plot(df_k[time_x], df_k['running_median'], color='purple', linewidth=2)
+        ax3.fill_between(df_k[time_x], df_k['running_median'] - df_k['stderr'], 
+                         df_k['running_median'] + df_k['stderr'], alpha=0.2, color='purple')
         st.pyplot(fig3)
 
     # --- FOOTER ---
     st.divider()
-    st.markdown("""
-    ### Über dieses Projekt
-    Diese Analyse nutzt Live-Daten des Vera C. Rubin Observatory. 
-    Die **Elite-Daten** basieren auf einer rein linearen Expansion ohne Berücksichtigung Dunkler Energie ($t = 1/H_0$).
-    """)
-    st.divider()
-    f1, f2 = st.columns([2, 1])
-    with f1:
-        st.markdown("**Herausgeber:** Rolf Bense, Jork | Kontakt: rolf.bense@web.de")
-    with f2:
-        st.caption("© 2026 age-of-the-universe.com")
+    st.markdown("**Impressum:** Rolf Bense, Jork | Kontakt: rolf.bense@web.de")
+    st.caption("© 2026 age-of-the-universe.com")
 
 if __name__ == "__main__":
     main()
