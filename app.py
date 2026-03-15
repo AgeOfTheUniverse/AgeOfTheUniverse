@@ -20,7 +20,7 @@ Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasa
 def load_data():
     try:
         token = st.secrets["LASAIR_TOKEN"]
-        # Wir probieren es erst mit dem LSST-Endpunkt
+        # Wir nutzen den LSST-Endpunkt
         L = lasair.lasair_client(token, endpoint='https://lasair-lsst.lsst.ac.uk/api')
         
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
@@ -30,22 +30,24 @@ def load_data():
         results = L.query(selected, tables, conditions, limit=1000)
         
         if results:
-            # DAS IST DER FIX:
-            # Wenn results ein einzelnes Dictionary ist, packen wir es in eine Liste [ ]
-            if isinstance(results, dict):
-                df = pd.DataFrame([results])
+            # Falls die API eine Liste von Dictionaries mit 'doc' Struktur liefert:
+            if isinstance(results, list) and len(results) > 0 and 'doc' in results[0]:
+                df = pd.DataFrame([r['doc'] for r in results])
             else:
-                # Wenn es schon eine Liste ist, nehmen wir sie direkt
+                # Fallback für flache Listen
                 df = pd.DataFrame(results)
             
             if not df.empty:
-                st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
-                # Sicherstellen, dass die Spaltennamen exakt matchen (Case-Insensitive Check)
+                # Spaltennamen normalisieren (kleinschreiben)
                 df.columns = [c.lower() for c in df.columns]
-                return df.dropna(subset=['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'])
+                
+                # Prüfen, welche Spalten wirklich da sind, um Absturz zu vermeiden
+                available_cols = df.columns.tolist()
+                subset = [c for c in ['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'] if c in available_cols]
+                
+                st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
+                return df.dropna(subset=subset)
         
-        st.sidebar.info("API lieferte kein Ergebnis, nutze Backup...")
-
     except Exception as e:
         st.sidebar.warning(f"Lasair-Client Fehler: {e}")
 
