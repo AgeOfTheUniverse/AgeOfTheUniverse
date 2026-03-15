@@ -26,29 +26,29 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. RADIKALE REINIGUNG
-        # Wir erstellen eine Kopie und werfen ALLES raus, was keine echten Werte hat
-        # Wir filtern z > 0.001, um diesen Berg bei Null physikalisch zu eliminieren
+        # 1. DATEN REINIGEN (Die 16 aus den 65 extrahieren)
+        # Wir filtern ALLES raus, was keine H0 oder z Werte hat.
+        # Damit verschwindet der Berg links im Histogramm endgültig.
         df_valid = df_raw.copy()
         df_valid = df_valid.dropna(subset=['z', 'h0_estimate'])
+        # Nur echte physikalische Werte (keine Nullen)
         df_valid = df_valid[(df_valid['z'] > 0.001) & (df_valid['h0_estimate'] > 0)]
         
-        # METRICS
-        st.metric("Basis (Gesamt)", len(df_raw)) # 65
-        count_placeholder = st.empty() # Hier landet die Zahl der "Echten"
+        # METRICS OBEN
+        st.metric("Basis (Gesamt)", len(df_raw)) # Sollte 65 sein
+        count_placeholder = st.empty() 
         
         st.divider()
+        st.subheader("Filter-Einstellungen")
 
         # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 1.0))
-        # WICHTIG: Wir plotten NUR df_valid. Wenn der Berg noch da ist, 
-        # fresse ich einen Besen, denn df_valid hat keine Werte < 0.001 mehr!
         if not df_valid.empty:
+            # Hintergrund: Alle validen SN (Grau)
             ax_z.hist(df_valid['z'], bins=30, range=(0, 0.1), color="lightgray", alpha=0.4)
-            
-            # Blau: Was der Slider übrig lässt
+            # Vordergrund: Aktive Auswahl (Blau)
             df_filtered_z = df_valid[df_valid['z'] >= z_min]
             ax_z.hist(df_filtered_z['z'], bins=30, range=(0, 0.1), color="#4682B4")
             
@@ -60,17 +60,30 @@ def draw_sidebar(df_raw):
         # --- B. H0 BEREICH ---
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
-        # FINALE AUSWAHL
+        # --- C. ELITE SCHWELLE (Wichtig für den NameError!) ---
+        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
+        
+        # FINALE FILTERUNG
         df_f = df_valid[
             (df_valid['z'] >= z_min) & 
             (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
-        ]
+        ].copy()
 
-        # Update der Zahl
+        # Elite Berechnung
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        anzahl_elite = 0
+        if not df_f.empty:
+            # Wir berechnen die Schwelle basierend auf den aktiven Daten
+            schwelle = np.percentile(df_f[col_n].fillna(0), qual_p)
+            anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
+
+        # Metrics Update
         count_placeholder.metric("Aktiv & Analysierbar", len(df_f), 
                                  delta=len(df_f) - len(df_raw))
+        st.metric("Elite-Auswahl", anzahl_elite)
 
-        return z_min, h0_range, 50, df_f, len(df_f)
+        # WICHTIG: Die Rückgabe muss exakt 5 Werte enthalten!
+        return z_min, h0_range, qual_p, df_f, anzahl_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
