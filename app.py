@@ -22,7 +22,7 @@ st.set_page_config(
 def load_data():
     return fetch_lasair_data()
 
-ddef draw_sidebar(df_raw):
+def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Filter")
         
