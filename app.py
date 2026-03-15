@@ -29,35 +29,31 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. METRICS CONTAINER GANZ OBEN
+        # 1. METRICS (Container für die Anzeige ganz oben)
         metric_container = st.container()
         st.divider()
 
-        # 2. FILTER EINSTELLUNGEN
+        # 2. DER MASTER-SCHALTER
         st.subheader("Filter-Einstellungen")
+        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=False) # Startwert FALSE zum Testen!
         
-        # Master-Schalter: Wenn AUS, reagiert die Zahl sofort auf die 65 Basis-Objekte
-        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=True)
-        
-        # Datenbasis für die Histogramme bestimmen
+        # Basis für Histogramm: Wenn Checkbox aus, zeigen wir die Verteilung aller 65
         df_hist_base = df_raw.dropna(subset=['h0_estimate', 'z']) if clean_active else df_raw
 
         # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        # Wir nutzen df_hist_base für die visuelle Verteilung
         z_values = df_hist_base['z'].dropna()
         if not z_values.empty:
+            # Wir nutzen 50 Bins für feine Auflösung
             counts, bins, patches = ax_z.hist(z_values, bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if bin_edge >= z_min:
-                    patch.set_facecolor('#4682B4')
-                    patch.set_alpha(0.8)
+                    patch.set_facecolor('#4682B4') # Blau
                 else:
-                    patch.set_facecolor('#FF4B4B') # Rot für "Rausgefiltert"
+                    patch.set_facecolor('#FF4B4B') # Rot
                     patch.set_alpha(0.2)
-        
         ax_z.set_xlim(0.0, 0.1)
         ax_z.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -73,11 +69,9 @@ def draw_sidebar(df_raw):
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if h0_range[0] <= bin_edge <= h0_range[1]:
                     patch.set_facecolor('#4682B4')
-                    patch.set_alpha(0.8)
                 else:
                     patch.set_facecolor('#FF4B4B')
                     patch.set_alpha(0.2)
-        
         ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -87,37 +81,37 @@ def draw_sidebar(df_raw):
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
 
-        # --- DIE ENTSCHEIDENDE LOGIK ---
-        # Wir starten IMMER mit der Brutto-Basis von 65
-        df_f = df_raw.copy()
+        # --- DIE KORRIGIERTE FILTER-LOGIK (Wichtigster Teil!) ---
+        # Schritt 1: Starte mit ALLEN 65
+        df_filtered = df_raw.copy()
         
-        # Erst JETZT filtern wir nach den Slidern (auf Basis der 65!)
-        df_f = df_f[
-            (df_f['z'] >= z_min) & 
-            (df_f['h0_estimate'].between(h0_range[0], h0_range[1]))
+        # Schritt 2: Wende Slider-Filter auf die 65 an (VOR dem Checkbox-Filter)
+        df_filtered = df_filtered[
+            (df_filtered['z'] >= z_min) & 
+            (df_filtered['h0_estimate'].between(h0_range[0], h0_range[1]))
         ]
         
-        # Erst ganz am Ende werfen wir die "Ungültigen" raus, wenn der Haken gesetzt ist
+        # Schritt 3: Erst jetzt (optional) die NaNs rauswerfen
         if clean_active:
-            df_f = df_f.dropna(subset=['h0_estimate', 'z'])
+            df_filtered = df_filtered.dropna(subset=['h0_estimate', 'z'])
 
-        # Elite Berechnung
+        # Elite-Berechnung
         anz_elite = 0
-        if not df_f.empty:
-            valid_n = df_f[col_n].dropna()
+        if not df_filtered.empty:
+            valid_n = df_filtered[col_n].dropna()
             if not valid_n.empty:
                 schwelle = np.percentile(valid_n, qual_p)
-                anz_elite = len(df_f[df_f[col_n] >= schwelle])
+                anz_elite = len(df_filtered[df_filtered[col_n] >= schwelle])
 
         # Metrics im Container anzeigen
         with metric_container:
             c1, c2 = st.columns(2)
             c1.metric("Basis (Gesamt)", len(df_raw))
-            # Jetzt wird das Delta zur Brutto-Basis (65) berechnet
-            c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
+            # Jetzt berechnet delta den Unterschied zwischen 65 und deinem aktuellen Filter
+            c2.metric("Aktiv", len(df_filtered), delta=len(df_filtered) - len(df_raw))
             st.metric("Elite-Auswahl", anz_elite)
 
-        return z_min, h0_range, qual_p, df_f, anz_elite
+        return z_min, h0_range, qual_p, df_filtered, anz_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
