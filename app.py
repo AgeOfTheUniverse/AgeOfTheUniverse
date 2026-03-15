@@ -84,7 +84,7 @@ def draw_sidebar(df_raw):
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
         # Zahl aktualisieren
-        count_placeholder.metric("Analysierbar", len(df_f), delta=len(df_f) - len(df_raw))
+        count_placeholder.metric("Used after Filter application", len(df_f), delta=len(df_f) - len(df_raw))
         st.metric("Davon Elite", anzahl_elite)
 
         return z_min, h0_range, qual_p, df_f, anzahl_elite
