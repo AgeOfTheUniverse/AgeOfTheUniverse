@@ -110,7 +110,7 @@ def draw_main_content(df_raw):
         st.pyplot(fig2)
 
     # --- STABILISIERUNGS-PLOT ---
-    sdef get_rolling_stats(df):
+    def get_rolling_stats(df):
     """Berechnet den laufenden Median und den statistischen Fehler."""
     # WICHTIG: Die Spalte muss hier kleingeschrieben sein
     col_time = 'lastdiasourcemjdtai' 
