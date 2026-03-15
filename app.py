@@ -54,15 +54,27 @@ def draw_sidebar(df_raw):
 
         # --- HISTOGRAMME & SLIDER ---
 
-        # Rotverschiebung (z)
+#    Rotverschiebung (z) mit interaktiver Einfärbung
         st.caption("Verteilung: Rotverschiebung (z)")
-        fig_z, ax_z = plt.subplots(figsize=(4, 1))
+        z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.005) # Kleinere Schritte!
+
+        fig_z, ax_z = plt.subplots(figsize=(4, 1.2))
         if not df_hist['z'].dropna().empty:
-            sns.histplot(df_hist['z'], bins=30, binrange=(0.0, 0.1), ax=ax_z, color="#4682B4", alpha=0.6)
+            # Wir holen uns die Daten für das Histogramm
+            counts, bins, patches = ax_z.hist(df_hist['z'], bins=30, range=(0.0, 0.1), color="lightgray", alpha=0.4)
+            
+            # Jetzt färben wir die Balken ein, die ÜBER dem z_min liegen
+            for count, bin_edge, patch in zip(counts, bins, patches):
+                if bin_edge >= z_min:
+                    patch.set_facecolor('#4682B4') # Blau für aktiv
+                    patch.set_alpha(0.8)
+                else:
+                    patch.set_facecolor('red') # Rot für weggefiltert
+                    patch.set_alpha(0.3)
+                    
         ax_z.set_xlim(0.0, 0.1)
         ax_z.axis('off')
         st.pyplot(fig_z)
-        z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.01)
 
         # Hubble-Konstante (H0)
         st.caption("Verteilung: Hubble-Konstante (H₀)")
