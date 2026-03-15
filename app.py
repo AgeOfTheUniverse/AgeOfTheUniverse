@@ -29,29 +29,32 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. DER RADIKALSCHNITT: Nur Objekte mit z UND H0 existieren für die Sidebar
-        # Wir ignorieren die 49 "Leichen" komplett für die Histogramme
-        df_plot = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
+        # 1. DER REINIGUNGS-FILTER
+        # Wir werfen alles raus, was NaN ist ODER exakt 0 (da 0 in der Astronomie hier ein Fehlerwert ist)
+        df_clean = df_raw.copy()
+        df_clean = df_clean[
+            (df_clean['z'] > 0) & 
+            (df_clean['h0_estimate'] > 0)
+        ].dropna(subset=['z', 'h0_estimate'])
         
-        # METRICS (Ganz oben)
-        st.metric("Datenbasis (Gesamt)", len(df_raw)) # Zeigt 65
-        
-        # Platzhalter für die aktive Zahl, damit sie oben steht
-        count_placeholder = st.empty()
+        # METRICS
+        st.metric("Basis (Gesamt)", len(df_raw)) # Sollte 65 zeigen
+        count_placeholder = st.empty() 
         
         st.divider()
-        st.subheader("Filter-Einstellungen")
 
         # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 1.0))
-        if not df_plot.empty:
-            # Wir plotten NUR die 16 validen Objekte
-            ax_z.hist(df_plot['z'], bins=30, range=(0, 0.1), color="lightgray", alpha=0.4)
+        if not df_clean.empty:
+            # Wir nutzen NUR die bereinigten Daten für das Histogramm
+            # Der Berg bei 0 MUSS jetzt weg sein, da wir oben z > 0 gefiltert haben
+            ax_z.hist(df_clean['z'], bins=30, range=(0, 0.1), color="lightgray", alpha=0.4)
+            
             # Blau markieren, was der Slider übrig lässt
-            df_z_active = df_plot[df_plot['z'] >= z_min]
-            ax_z.hist(df_z_active['z'], bins=30, range=(0, 0.1), color="#4682B4")
+            df_filtered_z = df_clean[df_clean['z'] >= z_min]
+            ax_z.hist(df_filtered_z['z'], bins=30, range=(0, 0.1), color="#4682B4")
             
         ax_z.set_xlim(0, 0.1)
         ax_z.axis('off')
@@ -61,17 +64,16 @@ def draw_sidebar(df_raw):
         # --- B. H0 BEREICH ---
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
-        # FINALE FILTERUNG (basierend auf den 16)
-        df_f = df_plot[
-            (df_plot['z'] >= z_min) & 
-            (df_plot['h0_estimate'].between(h0_range[0], h0_range[1]))
-        ].copy()
+        # Finale Filterung (auf Basis der validen Daten)
+        df_f = df_clean[
+            (df_clean['z'] >= z_min) & 
+            (df_clean['h0_estimate'].between(h0_range[0], h0_range[1]))
+        ]
 
-        # Update der Zahl ganz oben
+        # Metric oben aktualisieren
         count_placeholder.metric("Aktiv & Analysierbar", len(df_f), 
                                  delta=len(df_f) - len(df_raw))
 
-        # Rückgabe für die Main-App
         return z_min, h0_range, 50, df_f, len(df_f)
     
 # --- 4. HAUPTSEITE LOGIK ---
