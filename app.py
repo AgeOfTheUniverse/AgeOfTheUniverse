@@ -19,9 +19,20 @@ Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasa
 @st.cache_data(ttl=3600)
 def load_data():
     try:
-        # 1. Verbindung mit dem Token aus deinen Streamlit Secrets aufbauen
+        # Test: Ist der Token da?
+        if "LASAIR_TOKEN" not in st.secrets:
+            st.sidebar.error("Fehler: LASAIR_TOKEN fehlt in den Streamlit Secrets!")
+            return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
+            
         token = st.secrets["LASAIR_TOKEN"]
+        
+        # Kleiner Trick: Wir zeigen nur die ersten 3 Zeichen des Tokens in der Sidebar 
+        # (Sicher, aber hilft beim Debuggen)
+        # st.sidebar.write(f"Token beginnt mit: {token[:3]}...") 
+
         L = lasair.lasair_client(token)
+        # ... Rest des Codes ...
+
         
         # 2. Die Abfrage definieren (nach dem neuen Schema der Doku)
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
