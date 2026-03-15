@@ -52,7 +52,7 @@ def draw_sidebar(df_raw):
             "Min. Rotverschiebung (z)", 
             min_value=0.0, 
             max_value=z_max_data, 
-            value=0.0, 
+            value=0.015, 
             step=0.001, 
             format="%.3f"
         )
