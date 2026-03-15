@@ -57,22 +57,23 @@ def load_data():
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
 df_raw = load_data()
 
+from datetime import datetime # Oben bei den Imports ergänzen
+
 # --- DATEN-CHECK ---
 if df_raw is not None:
-    # Wir prüfen, ob die Daten "frisch" von der API kommen
-    # Das erkennen wir daran, ob wir im df_raw Spalten finden, die in der CSV anders hießen
     is_api = "lastdiasourcemjdtai" in df_raw.columns or "lastDiaSourceMjdTai" in df_raw.columns
     
     with st.sidebar:
         st.divider()
         if is_api:
             st.success(f"✅ VERBUNDEN: Lasair-API")
-            st.info(f"Anzahl Objekte: {len(df_raw)}")
+            st.info(f"Objekte im Live-Stream: {len(df_raw)}")
+            # Zeitstempel hinzufügen
+            now = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            st.caption(f"Letzter Abgleich: {now}")
         else:
             st.warning("⚠️ QUELLE: Lokale Backup-CSV")
             st.info(f"Anzahl Objekte: {len(df_raw)}")
-else:
-    st.error("Keine Daten verfügbar (weder API noch CSV)!")
 
 # --- 2. SIDEBAR (FILTER) ---
 st.sidebar.header("Filter-Einstellungen")
