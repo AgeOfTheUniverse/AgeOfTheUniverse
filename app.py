@@ -45,7 +45,7 @@ def draw_sidebar(df_raw):
         # Initialisierung der Filterwerte (Standardwerte), um die Metrics vorab zu berechnen
         # Streamlit merkt sich die Slider-Zustände automatisch
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
-        h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
+        h0_range = st.slider("H₀ Bereich", 20, 200, (40, 120))
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
         
         st.divider()
