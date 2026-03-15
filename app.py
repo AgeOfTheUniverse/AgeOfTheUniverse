@@ -1,4 +1,7 @@
 import streamlit as st
+from data_provider import fetch_lasair_data
+from calculations import calculate_universe_age
+from datetime import datetime # Oben bei den Imports ergänzen
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,6 +9,7 @@ import seaborn as sns
 import requests  
 import lasair 
 
+# 1. Config
 st.set_page_config(
     page_title="The Age of the Universe",
     page_icon="🌌",
@@ -14,56 +18,21 @@ st.set_page_config(
 )
 st.set_page_config(layout="wide", page_title="Age of the Universe - Live Monitor")
 
-# --- TITEL & EINLEITUNG ---
+# 2. DATEN LADEN (API + BACKUP) ---
+@st.cache_data(ttl=3600)
+def load_data_cached():
+    return fetch_lasair_data()
+
+df_raw = load_data_cached()
+
+
+# 3. GUI TITEL & EINLEITUNG ---
 st.title("🔭 age-of-the-universe.com")
 st.markdown("""
 ### Live-Analyse der Hubble-Konstante & des Weltalters
 Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasair.
 """)
 
-# --- 1. DATEN LADEN (API + BACKUP) ---
-@st.cache_data(ttl=3600)
-def load_data():
-    try:
-        token = st.secrets["LASAIR_TOKEN"]
-        # Wir nutzen den LSST-Endpunkt
-        L = lasair.lasair_client(token, endpoint='https://lasair-lsst.lsst.ac.uk/api')
-        
-        selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
-        tables     = 'objects'
-        # Wir weiten die Suche etwas aus, um mehr als nur 1 Objekt zu finden
-        conditions = 'h0_estimate IS NOT NULL AND z > 0'
-        
-        results = L.query(selected, tables, conditions, limit=1000)
-        
-        if results:
-            # Check: Sind die Daten im 'doc'-Format verschachtelt?
-            if isinstance(results, list) and len(results) > 0:
-                if isinstance(results[0], dict) and 'doc' in results[0]:
-                    # Wir packen jedes 'doc' aus
-                    df = pd.DataFrame([r['doc'] for r in results])
-                else:
-                    # Normales flaches Format
-                    df = pd.DataFrame(results)
-                
-                # Spaltennamen auf Kleinschreibung normieren
-                df.columns = [c.lower() for c in df.columns]
-                
-                # Nur Spalten filtern, die auch wirklich existieren
-                valid_cols = [c for c in ['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'] if c in df.columns]
-                
-                if not df.empty:
-                    st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
-                    return df.dropna(subset=valid_cols)
-        
-    except Exception as e:
-        st.sidebar.warning(f"Lasair-Client Fehler: {e}")
-
-    # Fallback auf die lokale CSV
-    return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
-df_raw = load_data()
-
-from datetime import datetime # Oben bei den Imports ergänzen
 
 # --- DATEN-CHECK ---
 if df_raw is not None:
