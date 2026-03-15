@@ -21,6 +21,19 @@ st.markdown("""
 Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasair.
 """)
 
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Objekte (Live)", len(df_raw))
+with col2:
+    avg_h0 = df_raw['h0_estimate'].mean()
+    st.metric("Durchschnitt H₀", f"{avg_h0:.2f} km/s/Mpc")
+with col3:
+    # Einfache Altersberechnung: 1/H0 (grob überschlagen)
+    age = 977.8 / avg_h0 if avg_h0 > 0 else 0
+    st.metric("Geschätztes Weltalter", f"{age:.1f} Mrd. Jahre")
+
+st.divider()
+
 # --- 1. DATEN LADEN (API + BACKUP) ---
 @st.cache_data(ttl=3600)
 def load_data():
