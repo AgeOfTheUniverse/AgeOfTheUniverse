@@ -121,7 +121,7 @@ def main():
     with st.sidebar:
         # Ein kleines Logo oder Icon oben in der Sidebar macht sich gut
         st.title("🌌 Navigation")
-        page = st.selectbox("Wähle eine Seite:", ["Analyse", "Über das Projekt"]
+        page = st.selectbox("Wähle eine Seite:", ["Analyse", "Über das Projekt"],
                             label_visibility="collapsed"
                             )
         st.divider()
