@@ -37,7 +37,7 @@ def draw_sidebar(df_raw):
             st.warning("Quelle: Backup-Daten")
 
         st.divider()
-
+ 
         # --- DATEN-STATISTIK OBEN ---
         st.subheader("Aktuelle Auswahl")
         
