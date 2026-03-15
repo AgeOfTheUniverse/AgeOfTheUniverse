@@ -9,7 +9,8 @@ import lasair
 st.set_page_config(
     page_title="The Age of the Universe",
     page_icon="🌌",
-    layout="wide"
+    layout="wide", # Nutzt die volle Bildschirmbreite
+    initial_sidebar_state="expanded"
 )
 st.set_page_config(layout="wide", page_title="Age of the Universe - Live Monitor")
 
