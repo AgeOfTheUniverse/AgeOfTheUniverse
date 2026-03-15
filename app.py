@@ -27,38 +27,75 @@ df_raw = load_data()
 # --- 3. SIDEBAR FUNKTION ---
 def draw_sidebar(df_raw):
     with st.sidebar:
-        st.header("📡 Status")
+        st.header("📡 Status & Daten")
         
-        # 1. MESSERSCHARFE LOGIK
-        # Wir berechnen ALLES auf Basis dessen, was wir wirklich haben
+        # 1. METRICS (Ganz oben zur Kontrolle)
+        metric_container = st.container()
+        st.divider()
+
+        st.subheader("Filter-Einstellungen")
+        
+        # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
-        # FILTERUNG
-        # Wir filtern die rohen Daten (sollten jetzt 65 sein, wenn API offen)
-        df_f = df_raw[df_raw['z'] >= z_min].copy()
-        
-        # METRICS
-        c1, c2 = st.columns(2)
-        c1.metric("Basis", len(df_raw))
-        c2.metric("Aktiv", len(df_f), delta=len(df_f)-len(df_raw))
-
-        # HISTOGRAMM (Nur wenn Daten da sind)
-        st.write("Verteilung z:")
+        # Histogramm für z
+        fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
         if not df_raw['z'].dropna().empty:
-            fig, ax = plt.subplots(figsize=(4, 1.5))
-            # Wir zeigen IMMER alle 65 im Hintergrund (grau)
-            ax.hist(df_raw['z'], bins=30, range=(0, 0.1), color="lightgray")
-            # Wir zeigen die AKTIVEN blau drüber
-            ax.hist(df_f['z'], bins=30, range=(0, 0.1), color="#4682B4")
-            ax.set_xlim(0, 0.1)
-            plt.subplots_adjust(left=0, right=1)
-            st.pyplot(fig)
-        
-        # Restliche Filter
-        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
-        df_f = df_f[df_f['h0_estimate'].between(h0_range[0], h0_range[1])]
+            # Hintergrund: Alle 65 (grau)
+            ax_z.hist(df_raw['z'], bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
+            # Aktiv: Nur die, die >= Slider sind (blau)
+            df_z_active = df_raw[df_raw['z'] >= z_min]
+            ax_z.hist(df_z_active['z'], bins=50, range=(0, 0.1), color="#4682B4", alpha=0.8)
+            
+        ax_z.set_xlim(0, 0.1)
+        ax_z.axis('off')
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        st.pyplot(fig_z)
 
-        return z_min, h0_range, 50, df_f, len(df_f)
+        # --- B. HUBBLE-KONSTANTE (H₀) ---
+        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
+        
+        # Histogramm für H0
+        fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
+        h0_data = df_raw['h0_estimate'].dropna()
+        if not h0_data.empty:
+            # Hintergrund: Alle (grau)
+            ax_h.hist(h0_data, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
+            # Aktiv: Innerhalb der Slider-Range (blau)
+            df_h_active = df_raw[df_raw['h0_estimate'].between(h0_range[0], h0_range[1])]
+            ax_h.hist(df_h_active['h0_estimate'], bins=50, range=(20, 150), color="#4682B4", alpha=0.8)
+            
+        ax_h.set_xlim(20, 150)
+        ax_h.axis('off')
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        st.pyplot(fig_h)
+
+        # --- C. ELITE-SCHWELLE ---
+        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
+
+        # --- FINALE FILTER-LOGIK ---
+        # Schritt 1: Slider-Filter anwenden
+        df_f = df_raw[
+            (df_raw['z'] >= z_min) & 
+            (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))
+        ].copy()
+        
+        # Schritt 2: Elite berechnen
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        anz_elite = 0
+        if not df_f.empty:
+            # Wichtig: Wir füllen leere Qualitätswerte mit 0 für die Elite-Logik
+            schwelle = np.percentile(df_f[col_n].fillna(0), qual_p)
+            anz_elite = len(df_f[df_f[col_n] >= schwelle])
+
+        # Metrics im Container füllen
+        with metric_container:
+            c1, c2 = st.columns(2)
+            c1.metric("Basis", len(df_raw))
+            c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
+            st.metric("Elite-Auswahl", anz_elite)
+
+        return z_min, h0_range, qual_p, df_f, anz_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
