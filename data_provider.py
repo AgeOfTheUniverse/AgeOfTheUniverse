@@ -10,7 +10,7 @@ def fetch_lasair_data():
         
         selected = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
         tables = 'objects'
-        conditions = 'h0_estimate IS NOT NULL AND z > 0'
+        conditions = ''
         
         results = L.query(selected, tables, conditions, limit=1000)
         

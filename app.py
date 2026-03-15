@@ -27,69 +27,38 @@ df_raw = load_data()
 # --- 3. SIDEBAR FUNKTION ---
 def draw_sidebar(df_raw):
     with st.sidebar:
-        st.header("📡 Status & Daten")
+        st.header("📡 Status")
         
-        # --- METRICS GANZ OBEN ---
-        metric_container = st.container()
-        st.divider()
-
-        st.subheader("Filter-Einstellungen")
-        # WICHTIG: Der Schalter steuert nur die END-Auswahl
-        clean_active = st.checkbox("Nur valide Daten (H₀ vorhanden)", value=False)
-        
-        # --- SLIDER ---
+        # 1. MESSERSCHARFE LOGIK
+        # Wir berechnen ALLES auf Basis dessen, was wir wirklich haben
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
+        
+        # FILTERUNG
+        # Wir filtern die rohen Daten (sollten jetzt 65 sein, wenn API offen)
+        df_f = df_raw[df_raw['z'] >= z_min].copy()
+        
+        # METRICS
+        c1, c2 = st.columns(2)
+        c1.metric("Basis", len(df_raw))
+        c2.metric("Aktiv", len(df_f), delta=len(df_f)-len(df_raw))
+
+        # HISTOGRAMM (Nur wenn Daten da sind)
+        st.write("Verteilung z:")
+        if not df_raw['z'].dropna().empty:
+            fig, ax = plt.subplots(figsize=(4, 1.5))
+            # Wir zeigen IMMER alle 65 im Hintergrund (grau)
+            ax.hist(df_raw['z'], bins=30, range=(0, 0.1), color="lightgray")
+            # Wir zeigen die AKTIVEN blau drüber
+            ax.hist(df_f['z'], bins=30, range=(0, 0.1), color="#4682B4")
+            ax.set_xlim(0, 0.1)
+            plt.subplots_adjust(left=0, right=1)
+            st.pyplot(fig)
+        
+        # Restliche Filter
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
-        
-        # --- HISTOGRAMM LOGIK ---
-        # Wir zeigen im Histogramm IMMER alles an, was z und H0 Werte hat, 
-        # damit man sieht, wo man filtert.
-        df_hist = df_raw.dropna(subset=['z', 'h0_estimate'])
-        
-        fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        if not df_hist.empty:
-            counts, bins, patches = ax_z.hist(df_hist['z'], bins=50, range=(0.0, 0.1), color="lightgray", alpha=0.3)
-            for count, bin_edge, patch in zip(counts, bins, patches):
-                if bin_edge >= z_min:
-                    patch.set_facecolor('#4682B4')
-                else:
-                    patch.set_facecolor('#FF4B4B')
-                    patch.set_alpha(0.2)
-        ax_z.set_xlim(0.0, 0.1)
-        ax_z.axis('off')
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        st.pyplot(fig_z)
+        df_f = df_f[df_f['h0_estimate'].between(h0_range[0], h0_range[1])]
 
-        # --- DIE FILTER-RECHUNG (SCHRITT FÜR SCHRITT) ---
-        # Schritt A: Wir starten mit den rohen 65 Objekten
-        df_step1 = df_raw.copy()
-        
-        # Schritt B: Wir filtern nach dem Slider (z-Wert)
-        # Wenn ein Objekt kein 'z' hat, wird es hier automatisch entfernt
-        df_step2 = df_step1[df_step1['z'] >= z_min]
-        
-        # Schritt C: Wir filtern nach H0 Bereich
-        # Objekte ohne H0-Wert fliegen hier raus, falls h0_range nicht (0, 200) ist
-        df_step3 = df_step2[df_step2['h0_estimate'].between(h0_range[0], h0_range[1])]
-        
-        # Schritt D: Der zusätzliche "Valide"-Check
-        if clean_active:
-            df_final = df_step3.dropna(subset=['h0_estimate', 'z'])
-        else:
-            df_final = df_step3
-
-        # Elite-Anzahl
-        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
-        anz_elite = len(df_final[df_final[col_n] >= np.percentile(df_final[col_n].fillna(0), 50)]) if not df_final.empty else 0
-
-        # Metrics füllen
-        with metric_container:
-            c1, c2 = st.columns(2)
-            c1.metric("Basis (Gesamt)", len(df_raw)) # Hier MUSS 65 stehen
-            c2.metric("Aktiv", len(df_final), delta=len(df_final) - len(df_raw))
-            st.metric("Elite-Auswahl", anz_elite)
-
-        return z_min, h0_range, 50, df_final, anz_elite
+        return z_min, h0_range, 50, df_f, len(df_f)
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
