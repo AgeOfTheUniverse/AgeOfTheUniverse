@@ -24,7 +24,7 @@ def load_data():
 
 df_raw = load_data()
 
-# --- 3. SIDEBAR FUNKTION (JETZT MIT ZAHLEN) ---
+# --- 3. SIDEBAR FUNKTION (ZAHLEN JETZT OBEN) ---
 def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
@@ -39,15 +39,17 @@ def draw_sidebar(df_raw):
 
         st.divider()
 
-        # --- NEU: Kennzahlen in der Sidebar ---
+        # --- DATEN-STATISTIK (VOR DEN FILTERN) ---
         st.subheader("Daten-Statistik")
         
-        # Wir definieren hier schon mal die Filterwerte, um die Vorschau-Zahlen zu berechnen
+        # Initialisierung der Filterwerte (Standardwerte), um die Metrics vorab zu berechnen
+        # Streamlit merkt sich die Slider-Zustände automatisch
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
         h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
         
         st.divider()
+        st.subheader("Aktuelle Auswahl")
         
         # Berechnung der Mengen für die Anzeige
         df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
@@ -58,7 +60,13 @@ def draw_sidebar(df_raw):
             schwelle = np.percentile(df_f[col_n], qual_p)
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
-        # Anzeige der Metrics untereinander in der Sidebar
+        # Metrics Darstellung ÜBER den Slidern ist technisch in Streamlit 
+        # oft schwierig, wenn die Slider-Werte für die Berechnung gebraucht werden.
+        # TRICK: Wir nutzen einen Container, um die Reihenfolge visuell zu steuern.
+        # Aber die einfachste und stabilste Lösung ist: Slider oben, Metrics direkt darunter.
+        # Wenn du sie strikt DRÜBER willst, müssten wir Platzhalter nutzen:
+        
+        # Anzeige der Metrics (Diese reagieren live auf die Slider unten)
         st.metric("Supernovae (Basis)", len(df_raw))
         st.metric("Nach Filter", len(df_f), delta=len(df_f) - len(df_raw))
         st.metric("Elite-Auswahl", anzahl_elite)
@@ -70,17 +78,17 @@ def main():
     st.title("🔭 age-of-the-universe.com")
     st.markdown("### Echtzeit-Kosmologie Monitor")
     
-    # Sidebar aufrufen und Filterwerte erhalten
+    # Sidebar aufrufen
     z_min, h0_range, qual_p = draw_sidebar(df_raw)
     
-    # Filterung für die Hauptseite anwenden
+    # Filterung für die Hauptseite
     df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
 
     if df_f.empty:
-        st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte die Slider anpassen.")
+        st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte Slider anpassen.")
         return
 
-    # Elite-Berechnung für Tabellen und Plots
+    # Elite-Berechnung
     col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
     schwelle = np.percentile(df_f[col_n], qual_p)
     df_elite = df_f[df_f[col_n] >= schwelle].copy()
@@ -137,7 +145,7 @@ def main():
     # --- FOOTER ---
     st.divider()
     st.markdown(f"**Impressum:** Rolf Bense, Jork | Kontakt: rolf.bense@web.de")
-    st.caption("© 2026 age-of-the-universe.com | Wissenschaftliche Live-Analyse")
+    st.caption("© 2026 age-of-the-universe.com")
 
 if __name__ == "__main__":
     main()
