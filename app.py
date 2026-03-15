@@ -29,18 +29,16 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. DATEN-VORBEREITUNG (Nur Brauchbare für die Visu)
-        # Wir definieren 'brauchbar' als: hat z UND hat h0_estimate
-        df_valid = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
+        # 1. DER FILTER-KERN (Nur was z UND H0 hat, darf überhaupt existieren)
+        # Alles andere verwirrt nur im Histogramm
+        df_clean = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
         
-        # Metrics anzeigen
+        # Metrics Anzeige
         metric_container = st.container()
         with metric_container:
-            c1, c2 = st.columns(2)
-            c1.metric("Basis (Gesamt)", len(df_raw)) # Zeigt 65
-            # Wir starten die Zählung bei den Brauchbaren
-            count_placeholder = st.empty() 
-        
+            st.metric("Basis (Gesamt)", len(df_raw)) # Bleibt 65
+            count_placeholder = st.empty() # Hier landet gleich die dynamische Zahl
+
         st.divider()
         st.subheader("Filter-Einstellungen")
 
@@ -48,10 +46,10 @@ def draw_sidebar(df_raw):
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        if not df_valid.empty:
-            # WICHTIG: Das Histogramm zeigt NUR die validen Daten
-            counts, bins, patches = ax_z.hist(df_valid['z'], bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
-            # Blau einfärben, was der Slider übrig lässt
+        if not df_clean.empty:
+            # WICHTIG: Histogramm nutzt NUR df_clean. Die "leeren" 49 Objekte sind weg!
+            counts, bins, patches = ax_z.hist(df_clean['z'], bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
+            # Blau einfärben was übrig bleibt
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if bin_edge >= z_min:
                     patch.set_facecolor('#4682B4')
@@ -65,8 +63,8 @@ def draw_sidebar(df_raw):
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
         fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
-        if not df_valid.empty:
-            counts, bins, patches = ax_h.hist(df_valid['h0_estimate'], bins=50, range=(20, 150), color="lightgray", alpha=0.3)
+        if not df_clean.empty:
+            counts, bins, patches = ax_h.hist(df_clean['h0_estimate'], bins=50, range=(20, 150), color="lightgray", alpha=0.3)
             for count, bin_edge, patch in zip(counts, bins, patches):
                 if h0_range[0] <= bin_edge <= h0_range[1]:
                     patch.set_facecolor('#4682B4')
@@ -76,23 +74,19 @@ def draw_sidebar(df_raw):
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_h)
 
-        # --- FINALE FILTERUNG ---
-        # Wir filtern JETZT auf Basis der validen Daten
-        df_f = df_valid[
-            (df_valid['z'] >= z_min) & 
-            (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
+        # --- FINALE BERECHNUNG ---
+        df_f = df_clean[
+            (df_clean['z'] >= z_min) & 
+            (df_clean['h0_estimate'].between(h0_range[0], h0_range[1]))
         ].copy()
 
-        # Metric aktualisieren
-        c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
+        # Jetzt die Zahl oben aktualisieren
+        count_placeholder.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
 
-        # Elite-Check
-        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        # Elite & Rückgabe
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
-        anz_elite = 0
-        if not df_f.empty:
-            schwelle = np.percentile(df_f[col_n].fillna(0), qual_p)
-            anz_elite = len(df_f[df_f[col_n] >= schwelle])
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        anz_elite = len(df_f[df_f[col_n] >= np.percentile(df_f[col_n].fillna(0), qual_p)]) if not df_f.empty else 0
         st.metric("Elite-Auswahl", anz_elite)
 
         return z_min, h0_range, qual_p, df_f, anz_elite
