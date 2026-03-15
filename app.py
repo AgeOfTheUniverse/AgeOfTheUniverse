@@ -80,7 +80,7 @@ def draw_sidebar(df_raw):
 
         with metric_container:
             c1, c2 = st.columns(2)
-            c1.metric("Basis", len(df_raw))
+            c1.metric("Verwertbar", len(df_raw))
             c2.metric("Gefiltert", len(df_f), delta=len(df_f) - len(df_raw))
             st.metric("Elite-Auswahl", anzahl_elite)
         
