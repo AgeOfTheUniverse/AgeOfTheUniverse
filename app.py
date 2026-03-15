@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+import plots 
 
 # Eigene Module importieren
 from data_provider import fetch_lasair_data
