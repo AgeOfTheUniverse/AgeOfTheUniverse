@@ -129,7 +129,7 @@ def main():
     # --- DATEN LADEN (Immer notwendig für die Sidebar-Werte) ---
     df_raw = load_data()
 
-    if page == "Analyse":
+    if page == "Analysis":
         # --- DEIN BISHERIGER ANALYSE-CODE ---
         st.title("🔭 age-of-the-universe.com")
         st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
