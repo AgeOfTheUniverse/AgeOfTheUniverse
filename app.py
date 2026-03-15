@@ -22,51 +22,68 @@ st.set_page_config(
 def load_data():
     return fetch_lasair_data()
 
-def draw_sidebar(df_raw):
-    # (Dein Sidebar-Code ist jetzt logisch korrekt!)
+ddef draw_sidebar(df_raw):
     with st.sidebar:
-        st.header("📡 Status & Daten")
+        st.header("📡 Status & Filter")
         
-        # WICHTIG: Hier bereinigen wir für die Histogramme
-        df_valid = df_raw.copy()
-        df_valid = df_valid.dropna(subset=['z', 'h0_estimate'])
-        df_valid = df_valid[(df_valid['z'] > 0.001) & (df_valid['h0_estimate'] > 0)]
+        # 1. DATEN-VORBEREITUNG
+        # Wir filtern nur die Zeilen, die für eine Berechnung überhaupt nutzbar sind
+        df_valid = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
+        df_valid = df_valid[(df_valid['z'] > 0) & (df_valid['h0_estimate'] > 0)]
         
-        st.metric("Basis (Gesamt)", len(df_raw)) 
-        count_placeholder = st.empty() 
+        # METRICS
+        st.metric("Gesamt-Objekte", len(df_raw))
+        count_placeholder = st.empty()
         
         st.divider()
-        st.subheader("Filter-Einstellungen")
 
-        z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
+        # 2. DYNAMISCHE SLIDER
+        # Wir holen uns Min/Max direkt aus den Daten, damit die Slider immer passen
+        z_min_data = float(df_valid['z'].min()) if not df_valid.empty else 0.0
+        z_max_data = float(df_valid['z'].max()) if not df_valid.empty else 0.1
         
-        fig_z, ax_z = plt.subplots(figsize=(4, 1.0))
-        if not df_valid.empty:
-            ax_z.hist(df_valid['z'], bins=30, range=(0, 0.1), color="lightgray", alpha=0.4)
-            df_filtered_z = df_valid[df_valid['z'] >= z_min]
-            ax_z.hist(df_filtered_z['z'], bins=30, range=(0, 0.1), color="#4682B4")
-        ax_z.set_xlim(0, 0.1)
-        ax_z.axis('off')
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        st.pyplot(fig_z)
+        h0_min_data = float(df_valid['h0_estimate'].min()) if not df_valid.empty else 20.0
+        h0_max_data = float(df_valid['h0_estimate'].max()) if not df_valid.empty else 150.0
 
-        h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
-        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
+        # Slider für Rotverschiebung
+        # Voreingestellt auf 0.0, damit erst mal alles Sichtbare drin bleibt
+        z_min = st.slider(
+            "Min. Rotverschiebung (z)", 
+            min_value=0.0, 
+            max_value=z_max_data, 
+            value=0.0, 
+            step=0.001, 
+            format="%.3f"
+        )
         
+        # Slider für H0 Bereich
+        h0_range = st.slider(
+            "H₀ Filterbereich", 
+            min_value=20.0, 
+            max_value=h0_max_data, 
+            value=(h0_min_data, h0_max_data),
+            step=1.0
+        )
+        
+        # Slider für Qualität (Elite)
+        qual_p = st.slider("Qualitäts-Schwelle (Top %)", 0, 100, 50)
+        
+        # 3. FILTERUNG ANWENDEN
         df_f = df_valid[
             (df_valid['z'] >= z_min) & 
             (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
         ].copy()
 
+        # Elite-Berechnung
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
         anzahl_elite = 0
         if not df_f.empty:
             schwelle = np.percentile(df_f[col_n].fillna(0), qual_p)
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
-        count_placeholder.metric("Aktiv & Analysierbar", len(df_f), 
-                                 delta=len(df_f) - len(df_raw))
-        st.metric("Elite-Auswahl", anzahl_elite)
+        # Zahl aktualisieren
+        count_placeholder.metric("Analysierbar", len(df_f), delta=len(df_f) - len(df_raw))
+        st.metric("Davon Elite", anzahl_elite)
 
         return z_min, h0_range, qual_p, df_f, anzahl_elite
     
@@ -76,7 +93,7 @@ def main():
     st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
     
     df_raw = load_data()
-    
+
     # Sidebar aufrufen und alle berechneten Werte abholen
     z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
 
