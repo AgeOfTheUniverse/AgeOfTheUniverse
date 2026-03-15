@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def calculate_universe_age(h0, correction_factor=1.0):
     """Berechnet das Weltalter basierend auf H0."""
@@ -14,3 +15,14 @@ def get_rolling_stats(df):
     df_sorted['running_n'] = np.arange(1, len(df_sorted) + 1)
     df_sorted['stderr'] = df_sorted['running_std'] / np.sqrt(df_sorted['running_n'])
     return df_sorted
+
+def apply_filters(df, z_min, h0_range):
+    return df[(df['z'] > z_min) & (df['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
+
+def get_elite_data(df, percentile):
+    if df.empty: return df, 0, 0
+    # Nutze kleingeschriebene Spaltennamen aus deinem data_provider
+    col = 'ndiasources' if 'ndiasources' in df.columns else 'nDiaSources'
+    schwelle = np.percentile(df[col], percentile)
+    df_elite = df[df[col] >= schwelle].copy()
+    return df_elite, df_elite['h0_estimate'].median(), df['h0_estimate'].median()
