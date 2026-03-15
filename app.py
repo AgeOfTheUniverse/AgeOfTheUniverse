@@ -111,17 +111,17 @@ def draw_main_content(df_raw):
 
     # --- STABILISIERUNGS-PLOT ---
     def get_rolling_stats(df):
-    #"""Berechnet den laufenden Median und den statistischen Fehler."""
-    # WICHTIG: Die Spalte muss hier kleingeschrieben sein
-    col_time = 'lastdiasourcemjdtai' 
+        #"""Berechnet den laufenden Median und den statistischen Fehler."""
+        # WICHTIG: Die Spalte muss hier kleingeschrieben sein
+        col_time = 'lastdiasourcemjdtai' 
     
-    if col_time not in df.columns:
-        # Falls die Spalte doch großgeschrieben ist, hier abfangen
-        available = [c for c in df.columns if c.lower() == col_time]
-        if available:
-            col_time = available[0]
-        else:
-            return df # Sicherheits-Fallback, falls Spalte fehlt
+        if col_time not in df.columns:
+            # Falls die Spalte doch großgeschrieben ist, hier abfangen
+            available = [c for c in df.columns if c.lower() == col_time]
+            if available:
+                col_time = available[0]
+            else:
+                return df # Sicherheits-Fallback, falls Spalte fehlt
 
     df_sorted = df.sort_values(col_time).copy()
     df_sorted['running_median'] = df_sorted['h0_estimate'].expanding().median()
