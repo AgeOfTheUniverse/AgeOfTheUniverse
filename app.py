@@ -33,7 +33,7 @@ def draw_sidebar(df_raw):
         df_valid = df_valid[(df_valid['z'] > 0) & (df_valid['h0_estimate'] > 0)]
         
         # METRICS
-        st.markdown("Total Amount of Supernovae Type 1a found by<br>Vera C. Rubin Observatory", unsafe_allow_html=True)
+        st.markdown("Total Amount of Supernovae Type 1a found by Vera C. Rubin Observatory", unsafe_allow_html=True)
         st.metric("",len(df_raw))
         count_placeholder = st.empty()
         
