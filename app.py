@@ -19,33 +19,38 @@ Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasa
 @st.cache_data(ttl=3600)
 def load_data():
     try:
-        # 1. Verbindung aufbauen
         token = st.secrets["LASAIR_TOKEN"]
+        # Wir probieren es erst mit dem LSST-Endpunkt
         L = lasair.lasair_client(token, endpoint='https://lasair-lsst.lsst.ac.uk/api')
         
-        # 2. Abfrage (Query)
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
         tables     = 'objects'
         conditions = 'h0_estimate IS NOT NULL AND z > 0'
         
         results = L.query(selected, tables, conditions, limit=1000)
         
-        # 3. Daten verarbeiten
-        if results and len(results) > 0:
-            df = pd.DataFrame(results)
-            st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
-            # Wir geben den bereinigten DataFrame zurück
-            return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
-        else:
-            st.sidebar.info("API lieferte leeres Ergebnis, nutze Backup...")
+        if results:
+            # DAS IST DER FIX:
+            # Wenn results ein einzelnes Dictionary ist, packen wir es in eine Liste [ ]
+            if isinstance(results, dict):
+                df = pd.DataFrame([results])
+            else:
+                # Wenn es schon eine Liste ist, nehmen wir sie direkt
+                df = pd.DataFrame(results)
+            
+            if not df.empty:
+                st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
+                # Sicherstellen, dass die Spaltennamen exakt matchen (Case-Insensitive Check)
+                df.columns = [c.lower() for c in df.columns]
+                return df.dropna(subset=['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'])
+        
+        st.sidebar.info("API lieferte kein Ergebnis, nutze Backup...")
 
     except Exception as e:
-        # Hier ist der 'except' Block, den Python vermisst hat!
         st.sidebar.warning(f"Lasair-Client Fehler: {e}")
 
-    # BACKUP: Falls oben irgendwas schiefgeht, landen wir hier
+    # BACKUP-RETTUNGSANKER
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
-
 df_raw = load_data()
 
 # --- 2. SIDEBAR (FILTER) ---
