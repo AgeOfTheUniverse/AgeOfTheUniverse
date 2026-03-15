@@ -19,41 +19,31 @@ Basiert auf den neuesten Daten des **Vera C. Rubin Observatory (LSST)** via Lasa
 @st.cache_data(ttl=3600)
 def load_data():
     try:
+        # 1. Verbindung aufbauen
         token = st.secrets["LASAIR_TOKEN"]
-        # Wir geben den Endpunkt explizit an, falls die Library standardmäßig den falschen wählt
-        endpoint = "https://lasair-lsst.lsst.ac.uk/api" 
-        L = lasair.lasair_client(token, endpoint=endpoint)
+        L = lasair.lasair_client(token)
         
-        # ... Rest des Codes ...
-
-        
-        # 2. Die Abfrage definieren (nach dem neuen Schema der Doku)
+        # 2. Abfrage (Query)
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
         tables     = 'objects'
         conditions = 'h0_estimate IS NOT NULL AND z > 0'
         
-        # 3. Abfrage ausführen
         results = L.query(selected, tables, conditions, limit=1000)
         
-if results:
-            # Wir zwingen die Daten in eine Liste, falls nur ein Objekt kommt
-            if isinstance(results, dict):
-                df = pd.DataFrame([results])
-            else:
-                df = pd.DataFrame(results)
-            
-            # WICHTIG: Manchmal liefert der neue Client die Spaltennamen 
-            # in einer anderen Ebene. Wir stellen sicher, dass sie da sind.
-            if not df.empty:
-                # Falls die Spaltennamen in der Fehlermeldung auftauchen, 
-                # existieren sie im DF, aber vielleicht als Index oder Objekt-Typ.
-                st.sidebar.success(f"📡 {len(df)} Supernovae geladen")
-                return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
-            
+        # 3. Daten verarbeiten
+        if results and len(results) > 0:
+            df = pd.DataFrame(results)
+            st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
+            # Wir geben den bereinigten DataFrame zurück
+            return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
+        else:
+            st.sidebar.info("API lieferte leeres Ergebnis, nutze Backup...")
+
     except Exception as e:
+        # Hier ist der 'except' Block, den Python vermisst hat!
         st.sidebar.warning(f"Lasair-Client Fehler: {e}")
 
-    # Backup-CSV, falls der Client oder die API nicht will
+    # BACKUP: Falls oben irgendwas schiefgeht, landen wir hier
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
 
 df_raw = load_data()
