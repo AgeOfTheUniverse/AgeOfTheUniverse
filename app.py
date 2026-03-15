@@ -33,16 +33,15 @@ def draw_sidebar(df_raw):
         is_api = "lastdiasourcemjdtai" in df_raw.columns
         if is_api:
             st.success("Verbindung: Lasair Live")
-            st.caption(f"Update: {datetime.now().strftime('%H:%M:%S')}")
         else:
-            st.warning("Quelle: Backup-Daten (CSV)")
+            st.warning("Quelle: Backup-Daten")
 
         st.divider()
 
-        # --- DATEN-STATISTIK (OBEN) ---
+        # --- DATEN-STATISTIK OBEN ---
         st.subheader("Aktuelle Auswahl")
         
-        # Wir definieren Container für die Metrics, damit sie oben stehen
+        # Container für die Zahlen, damit sie über den Slidern erscheinen
         metric_container = st.container()
         
         st.divider()
@@ -51,19 +50,25 @@ def draw_sidebar(df_raw):
         h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
         
-        # Berechnung für die Metrics
+        # Berechnung der Mengen
         df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
         col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
         
         anzahl_elite = 0
         if not df_f.empty:
-            schwelle = np.percentile(df_f[col_n], qual_p)
-            anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
+            # Sicherheitscheck für nDiaSources
+            if col_n in df_f.columns:
+                schwelle = np.percentile(df_f[col_n], qual_p)
+                anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
-        # Metrics in den oberen Container schreiben
+        # Metrics im Container nebeneinander anordnen
         with metric_container:
-            st.metric("Supernovae (Basis)", len(df_raw))
-            st.metric("Nach Filter", len(df_f), delta=len(df_f) - len(df_raw))
+            # Wir erstellen zwei Spalten für eine kompakte Ansicht
+            c1, c2 = st.columns(2)
+            c1.metric("Basis", len(df_raw))
+            c2.metric("Gefiltert", len(df_f), delta=len(df_f) - len(df_raw))
+            
+            # Die Elite-Zahl darunter oder als dritte Spalte (Sidebar ist oft schmal)
             st.metric("Elite-Auswahl", anzahl_elite)
         
         return z_min, h0_range, qual_p
