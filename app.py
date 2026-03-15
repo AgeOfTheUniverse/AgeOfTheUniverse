@@ -90,66 +90,96 @@ def draw_sidebar(df_raw):
         return z_min, h0_range, qual_p, df_f, anzahl_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
-def main():
-    st.title("🔭 age-of-the-universe.com")
-    st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
+def render_about_page():
+    """Diese Funktion zeigt die Informationen über dich und das Projekt."""
+    st.header("Über das Projekt & Kontakt")
     
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.info("### Kontakt\n**Rolf Bense**\nJork, Deutschland\n\n📧 rolf.bense@web.de")
+        st.write("---")
+        st.write("### Datenquelle")
+        st.write("Diese Echtzeit-Daten stammen vom **Vera C. Rubin Observatory (Lasair)**.")
+
+    with col2:
+        st.write("### Die Mission")
+        st.write("""
+        Willkommen bei **age-of-the-universe.com**. Diese Seite ist entstanden, um die faszinierende Debatte 
+        um die Hubble-Konstante ($H_0$) interaktiv erlebbar zu machen. 
+        
+        Hier kannst du selbst entscheiden, welche Supernovae-Daten vom Typ Ia vertrauenswürdig sind. 
+        Durch das Filtern nach Rotverschiebung und Datenqualität siehst du in Echtzeit, wie sich 
+        die Schätzung des Weltalters verschiebt. 
+        
+        Viel Spaß beim Erforschen der kosmischen Expansion!
+        """)
+        st.success("🔭 Astronomie ist für alle da – dieses Projekt ist ein privater Beitrag zur Wissenschaftskommunikation.")
+
+def main():
+    # --- NAVIGATION IN DER SIDEBAR ---
+    with st.sidebar:
+        # Ein kleines Logo oder Icon oben in der Sidebar macht sich gut
+        st.title("🌌 Navigation")
+        page = st.selectbox("Wähle eine Seite:", ["Analyse", "Über das Projekt"])
+        st.divider()
+
+    # --- DATEN LADEN (Immer notwendig für die Sidebar-Werte) ---
     df_raw = load_data()
 
-    # Sidebar aufrufen und alle berechneten Werte abholen
-    z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
-
-    if df_f.empty:
-        st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte Slider anpassen.")
-        return
-
-    # Elite-Berechnung für Plots
-    col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
-    schwelle = np.percentile(df_f[col_n], qual_p)
-    df_elite = df_f[df_f[col_n] >= schwelle].copy()
-    h0_elite = df_elite['h0_estimate'].median()
-    h0_alle = df_f['h0_estimate'].median()
-
-    # --- TABELLE ---
-    st.subheader("Modellvergleich")
-    vergleich_df = pd.DataFrame({
-        "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
-        "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
-        "Rubin (Alle)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
-        "Elite (Deine Wahl)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
-    }, index=["H₀ (km/s/Mpc)", "Weltalter (Mrd. J.)"])
-    st.table(vergleich_df)
-
-    # --- GRAFIKEN ---
-    # --- GRAFIKEN ---
-    col_g1, col_g2 = st.columns(2)
-    
-    with col_g1:
-        # Hier nutzen wir das neue Histogramm mit den 3 Linien
-        fig1 = plots.plot_h0_distribution(df_elite, h0_elite)
-        st.pyplot(fig1)
-
-    with col_g2:
-        # Hier nutzen wir den Scatterplot mit der Median-Linie
-        # col_n wurde vorher in deiner main bereits definiert
-        fig2 = plots.plot_h0_redshift(df_f, col_n, h0_elite)
-        st.pyplot(fig2)
-
-    # --- STABILISIERUNG ---
-    df_k = calc.get_rolling_stats(df_f)
-    if 'running_median' in df_k.columns:
-        st.write("### Chronologische Konvergenz")
-        # Zeit-Achse finden
-        time_x = next((c for c in df_k.columns if c.lower() == 'lastdiasourcemjdtai'), df_k.index)
+    if page == "Analyse":
+        # --- DEIN BISHERIGER ANALYSE-CODE ---
+        st.title("🔭 age-of-the-universe.com")
+        st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
         
-        # Hier nutzen wir den Konvergenz-Plot mit Planck & SH0ES Linien
-        fig3 = plots.plot_convergence(df_k, time_x)
-        st.pyplot(fig3)
+        # Sidebar aufrufen (Filter erscheinen nur bei Analyse)
+        z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
 
-    # --- FOOTER ---
+        if df_f.empty:
+            st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte Slider anpassen.")
+            return
+
+        # Elite-Berechnung
+        col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
+        schwelle = np.percentile(df_f[col_n], qual_p)
+        df_elite = df_f[df_f[col_n] >= schwelle].copy()
+        h0_elite = df_elite['h0_estimate'].median()
+        h0_alle = df_f['h0_estimate'].median()
+
+        # --- TABELLE ---
+        st.subheader("Modellvergleich")
+        vergleich_df = pd.DataFrame({
+            "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
+            "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
+            "Rubin (Alle)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
+            "Elite (Deine Wahl)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
+        }, index=["H₀ (km/s/Mpc)", "Weltalter (Mrd. J.)"])
+        st.table(vergleich_df)
+
+        # --- GRAFIKEN ---
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            fig1 = plots.plot_h0_distribution(df_elite, h0_elite)
+            st.pyplot(fig1)
+        with col_g2:
+            fig2 = plots.plot_h0_redshift(df_f, col_n, h0_elite)
+            st.pyplot(fig2)
+
+        # --- STABILISIERUNG ---
+        df_k = calc.get_rolling_stats(df_f)
+        if 'running_median' in df_k.columns:
+            st.write("### Chronologische Konvergenz")
+            time_x = next((c for c in df_k.columns if c.lower() == 'lastdiasourcemjdtai'), df_k.index)
+            fig3 = plots.plot_convergence(df_k, time_x)
+            st.pyplot(fig3)
+
+    else:
+        # --- ÜBER MICH SEITE ---
+        render_about_page()
+
+    # --- EINHEITLICHER FOOTER ---
     st.divider()
-    st.markdown("**Impressum:** Rolf Bense, Jork | Kontakt: rolf.bense@web.de")
-    st.caption("© 2026 age-of-the-universe.com")
+    st.caption("© 2026 age-of-the-universe.com | Jork, Deutschland")
 
 if __name__ == "__main__":
     main()
