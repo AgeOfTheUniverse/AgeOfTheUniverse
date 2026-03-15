@@ -25,8 +25,7 @@ def load_data():
 df_raw = load_data()
 
 # --- 3. SIDEBAR FUNKTION ---
-def draw_sidebar(df_raw):
-    with st.sidebar:
+with st.sidebar:
         st.header("📡 Status & Daten")
         
         # Verbindungstatus
@@ -37,38 +36,51 @@ def draw_sidebar(df_raw):
             st.warning("Quelle: Backup-Daten")
 
         st.divider()
- 
-        # --- DATEN-STATISTIK OBEN ---
+
+        # --- DATEN-STATISTIK OBEN NEBENEINANDER ---
         st.subheader("Aktuelle Auswahl")
-        
-        # Container für die Zahlen, damit sie über den Slidern erscheinen
         metric_container = st.container()
         
         st.divider()
         st.subheader("Filter-Einstellungen")
+
+        # 1. Histogramm & Slider für Rotverschiebung (z)
+        st.caption("Verteilung: Rotverschiebung")
+        fig_z, ax_z = plt.subplots(figsize=(4, 1.5))
+        sns.histplot(df_raw['z'], bins=20, ax=ax_z, color="gray", alpha=0.4)
+        ax_z.axis('off') # Schaltet Achsen für kompakte Optik aus
+        st.pyplot(fig_z)
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
+
+        # 2. Histogramm & Slider für H0 Bereich
+        st.caption("Verteilung: Hubble-Konstante")
+        fig_h, ax_h = plt.subplots(figsize=(4, 1.5))
+        sns.histplot(df_raw['h0_estimate'], bins=20, ax=ax_h, color="gray", alpha=0.4)
+        ax_h.axis('off')
+        st.pyplot(fig_h)
         h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
+
+        # 3. Histogramm & Slider für Elite-Schwelle (nDiaSources)
+        st.caption("Verteilung: Datenqualität (nDiaSources)")
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        fig_q, ax_q = plt.subplots(figsize=(4, 1.5))
+        sns.histplot(df_raw[col_n], bins=20, ax=ax_q, color="gray", alpha=0.4)
+        ax_q.axis('off')
+        st.pyplot(fig_q)
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
-        
-        # Berechnung der Mengen
+
+        # --- BERECHNUNG DER METRICS (NACH DEN SLIDERN) ---
         df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
-        col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
         
         anzahl_elite = 0
         if not df_f.empty:
-            # Sicherheitscheck für nDiaSources
-            if col_n in df_f.columns:
-                schwelle = np.percentile(df_f[col_n], qual_p)
-                anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
+            schwelle = np.percentile(df_f[col_n], qual_p)
+            anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
-        # Metrics im Container nebeneinander anordnen
         with metric_container:
-            # Wir erstellen zwei Spalten für eine kompakte Ansicht
             c1, c2 = st.columns(2)
             c1.metric("Basis", len(df_raw))
             c2.metric("Gefiltert", len(df_f), delta=len(df_f) - len(df_raw))
-            
-            # Die Elite-Zahl darunter oder als dritte Spalte (Sidebar ist oft schmal)
             st.metric("Elite-Auswahl", anzahl_elite)
         
         return z_min, h0_range, qual_p
