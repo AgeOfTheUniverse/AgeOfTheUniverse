@@ -28,21 +28,34 @@ df_raw = load_data()
 def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
-        metric_container = st.container()
-        st.divider()
-
-        st.subheader("Filter-Einstellungen")
         
+        # 1. DATEN-VORBEREITUNG (Nur Brauchbare für die Visu)
+        # Wir definieren 'brauchbar' als: hat z UND hat h0_estimate
+        df_valid = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
+        
+        # Metrics anzeigen
+        metric_container = st.container()
+        with metric_container:
+            c1, c2 = st.columns(2)
+            c1.metric("Basis (Gesamt)", len(df_raw)) # Zeigt 65
+            # Wir starten die Zählung bei den Brauchbaren
+            count_placeholder = st.empty() 
+        
+        st.divider()
+        st.subheader("Filter-Einstellungen")
+
         # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        # Wir behandeln NaNs als -1, damit sie bei Slider 0.000 nicht gefiltert werden
-        z_safe = df_raw['z'].fillna(-1)
-        ax_z.hist(z_safe, bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
-        # Blau markieren, was im Filter ist
-        active_z_mask = (df_raw['z'].fillna(0) >= z_min)
-        ax_z.hist(df_raw[active_z_mask]['z'], bins=50, range=(0, 0.1), color="#4682B4", alpha=0.8)
+        if not df_valid.empty:
+            # WICHTIG: Das Histogramm zeigt NUR die validen Daten
+            counts, bins, patches = ax_z.hist(df_valid['z'], bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
+            # Blau einfärben, was der Slider übrig lässt
+            for count, bin_edge, patch in zip(counts, bins, patches):
+                if bin_edge >= z_min:
+                    patch.set_facecolor('#4682B4')
+                    patch.set_alpha(0.8)
         ax_z.set_xlim(0, 0.1)
         ax_z.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -52,35 +65,37 @@ def draw_sidebar(df_raw):
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
         fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
-        # Hier ist der Trick: Wir füllen NaNs mit einem Wert INNERHALB des Start-Bereichs
-        h0_safe = df_raw['h0_estimate'].fillna(70) 
-        ax_h.hist(h0_safe, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
-        # Blau für die aktiven
-        active_h0_mask = (df_raw['h0_estimate'].fillna(70).between(h0_range[0], h0_range[1]))
-        ax_h.hist(df_raw[active_h0_mask]['h0_estimate'], bins=50, range=(20, 150), color="#4682B4", alpha=0.8)
+        if not df_valid.empty:
+            counts, bins, patches = ax_h.hist(df_valid['h0_estimate'], bins=50, range=(20, 150), color="lightgray", alpha=0.3)
+            for count, bin_edge, patch in zip(counts, bins, patches):
+                if h0_range[0] <= bin_edge <= h0_range[1]:
+                    patch.set_facecolor('#4682B4')
+                    patch.set_alpha(0.8)
         ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_h)
 
-        # --- C. DIE LOGIK DIE NICHT LÜGT ---
-        # Wir filtern NUR, wenn der Wert existiert UND außerhalb der Range liegt.
-        # Wenn kein Wert existiert (NaN), lassen wir ihn drin (solange Slider auf Default)
-        
-        # Logik: Behalte wenn (Wert >= z_min) ODER (Wert ist NaN)
-        df_f = df_raw[
-            (df_raw['z'].fillna(1) >= z_min) & 
-            (df_raw['h0_estimate'].fillna(70).between(h0_range[0], h0_range[1]))
+        # --- FINALE FILTERUNG ---
+        # Wir filtern JETZT auf Basis der validen Daten
+        df_f = df_valid[
+            (df_valid['z'] >= z_min) & 
+            (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
         ].copy()
 
-        # Metrics
-        with metric_container:
-            c1, c2 = st.columns(2)
-            c1.metric("Basis", len(df_raw))
-            # HIER MUSS JETZT 65 STEHEN WENN SLIDER AUF LINKS SIND
-            c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
+        # Metric aktualisieren
+        c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
 
-        return z_min, h0_range, 50, df_f, len(df_f)
+        # Elite-Check
+        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
+        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
+        anz_elite = 0
+        if not df_f.empty:
+            schwelle = np.percentile(df_f[col_n].fillna(0), qual_p)
+            anz_elite = len(df_f[df_f[col_n] >= schwelle])
+        st.metric("Elite-Auswahl", anz_elite)
+
+        return z_min, h0_range, qual_p, df_f, anz_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
