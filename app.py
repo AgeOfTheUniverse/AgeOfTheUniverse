@@ -36,9 +36,15 @@ def load_data():
         results = L.query(selected, tables, conditions, limit=1000)
         
         if results:
-            df = pd.DataFrame(results)
-            st.sidebar.success("📡 Live-Daten via Lasair-Client geladen")
-            return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
+            # Falls nur ein Datensatz kommt, macht [results] eine Liste daraus
+            if isinstance(results, dict):
+                df = pd.DataFrame([results])
+            else:
+                df = pd.DataFrame(results)
+            
+            if not df.empty:
+                st.sidebar.success("📡 Live-Daten via Lasair-Client geladen")
+                return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
             
     except Exception as e:
         st.sidebar.warning(f"Lasair-Client Fehler: {e}")
