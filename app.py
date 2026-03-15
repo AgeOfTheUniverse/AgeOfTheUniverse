@@ -37,36 +37,40 @@ def draw_sidebar(df_raw):
 
         st.divider()
         st.subheader("Aktuelle Auswahl")
-        
-        # Platzhalter für die Zahlen (Metrics) ganz oben
         metric_container = st.container()
         
         st.divider()
         st.subheader("Filter-Einstellungen")
 
-        # 1. Histogramm & Slider: z
+        # 1. Histogramm & Slider: z (Bereich 0.0 bis 0.1)
         fig_z, ax_z = plt.subplots(figsize=(4, 1))
-        sns.histplot(df_raw['z'], bins=30, ax=ax_z, color="gray", alpha=0.4)
+        # Range festlegen, damit x-Achse dem Slider entspricht
+        sns.histplot(df_raw['z'], bins=30, binrange=(0.0, 0.1), ax=ax_z, color="gray", alpha=0.4)
+        ax_z.set_xlim(0.0, 0.1) 
         ax_z.axis('off')
         st.pyplot(fig_z)
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.02, 0.01)
 
-        # 2. Histogramm & Slider: H0
+        # 2. Histogramm & Slider: H0 (Bereich 20 bis 150)
         fig_h, ax_h = plt.subplots(figsize=(4, 1))
-        sns.histplot(df_raw['h0_estimate'], bins=30, ax=ax_h, color="gray", alpha=0.4)
+        sns.histplot(df_raw['h0_estimate'], bins=30, binrange=(20, 150), ax=ax_h, color="gray", alpha=0.4)
+        ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         st.pyplot(fig_h)
         h0_range = st.slider("H₀ Bereich", 20, 150, (40, 120))
 
-        # 3. Histogramm & Slider: Elite
+        # 3. Histogramm & Slider: Elite (Bereich 0 bis 100% bzw. Max nDiaSources)
         col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
         fig_q, ax_q = plt.subplots(figsize=(4, 1))
-        sns.histplot(df_raw[col_n], bins=30, ax=ax_q, color="gray", alpha=0.4)
+        # Hier nutzen wir den tatsächlichen Datenbereich für das Histogramm
+        q_max = float(df_raw[col_n].max())
+        sns.histplot(df_raw[col_n], bins=30, binrange=(0, q_max), ax=ax_q, color="gray", alpha=0.4)
+        ax_q.set_xlim(0, q_max)
         ax_q.axis('off')
         st.pyplot(fig_q)
         qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
 
-        # BERECHNUNG (muss innerhalb der Sidebar-Funktion nach den Slidern stehen)
+        # BERECHNUNG
         df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
         
         anzahl_elite = 0
@@ -74,7 +78,6 @@ def draw_sidebar(df_raw):
             schwelle = np.percentile(df_f[col_n], qual_p)
             anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
 
-        # Metrics in den Container schreiben (ganz oben in der Sidebar)
         with metric_container:
             c1, c2 = st.columns(2)
             c1.metric("Basis", len(df_raw))
