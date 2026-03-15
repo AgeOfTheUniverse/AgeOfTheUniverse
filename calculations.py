@@ -8,8 +8,19 @@ def calculate_universe_age(h0, correction_factor=1.0):
     return (977.8 / h0) * correction_factor
 
 def get_rolling_stats(df):
-    """Berechnet laufenden Median und Fehler für die Zeitreihe."""
-    df_sorted = df.sort_values('lastdiasourcemjdtai').copy()
+    """Berechnet den laufenden Median und den statistischen Fehler."""
+    # WICHTIG: Die Spalte muss hier kleingeschrieben sein
+    col_time = 'lastdiasourcemjdtai' 
+    
+    if col_time not in df.columns:
+        # Falls die Spalte doch großgeschrieben ist, hier abfangen
+        available = [c for c in df.columns if c.lower() == col_time]
+        if available:
+            col_time = available[0]
+        else:
+            return df # Sicherheits-Fallback, falls Spalte fehlt
+
+    df_sorted = df.sort_values(col_time).copy()
     df_sorted['running_median'] = df_sorted['h0_estimate'].expanding().median()
     df_sorted['running_std'] = df_sorted['h0_estimate'].expanding().std()
     df_sorted['running_n'] = np.arange(1, len(df_sorted) + 1)

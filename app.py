@@ -110,23 +110,25 @@ def draw_main_content(df_raw):
         st.pyplot(fig2)
 
     # --- STABILISIERUNGS-PLOT ---
-    st.write("### Chronologische Stabilisierung (Konvergenz)")
-    # Zeitreihen-Berechnung via calculations.py
-    df_konv = calc.get_rolling_stats(df_filtered)
+    sdef get_rolling_stats(df):
+    """Berechnet den laufenden Median und den statistischen Fehler."""
+    # WICHTIG: Die Spalte muss hier kleingeschrieben sein
+    col_time = 'lastdiasourcemjdtai' 
     
-    fig3, ax3 = plt.subplots(figsize=(12, 5))
-    ax3.plot(df_konv['lastdiasourcemjdtai'], df_konv['running_median'], color='purple', linewidth=3, label="Laufender Median")
-    ax3.fill_between(df_konv['lastdiasourcemjdtai'], 
-                     df_konv['running_median'] - df_konv['stderr'], 
-                     df_konv['running_median'] + df_konv['stderr'], 
-                     color='purple', alpha=0.2, label="Statistischer Fehlerbereich")
+    if col_time not in df.columns:
+        # Falls die Spalte doch großgeschrieben ist, hier abfangen
+        available = [c for c in df.columns if c.lower() == col_time]
+        if available:
+            col_time = available[0]
+        else:
+            return df # Sicherheits-Fallback, falls Spalte fehlt
 
-    ax3.axhline(67.4, color='red', linestyle='--', alpha=0.5, label="Planck (67.4)")
-    ax3.axhline(73.0, color='green', linestyle='--', alpha=0.5, label="SH0ES (73.0)")
-    ax3.set_xlabel("Zeit (Modified Julian Date)")
-    ax3.set_ylabel("Hubble-Konstante H₀")
-    ax3.legend(loc='upper left', ncol=2)
-    st.pyplot(fig3)
+    df_sorted = df.sort_values(col_time).copy()
+    df_sorted['running_median'] = df_sorted['h0_estimate'].expanding().median()
+    df_sorted['running_std'] = df_sorted['h0_estimate'].expanding().std()
+    df_sorted['running_n'] = np.arange(1, len(df_sorted) + 1)
+    df_sorted['stderr'] = df_sorted['running_std'] / np.sqrt(df_sorted['running_n'])
+    return df_sorted
 
 # --- 5. FOOTER & INFOS ---
 def draw_footer():
