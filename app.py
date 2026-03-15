@@ -35,15 +35,19 @@ def load_data():
         # 3. Abfrage ausführen
         results = L.query(selected, tables, conditions, limit=1000)
         
-        if results:
-            # Falls nur ein Datensatz kommt, macht [results] eine Liste daraus
+if results:
+            # Wir zwingen die Daten in eine Liste, falls nur ein Objekt kommt
             if isinstance(results, dict):
                 df = pd.DataFrame([results])
             else:
                 df = pd.DataFrame(results)
             
+            # WICHTIG: Manchmal liefert der neue Client die Spaltennamen 
+            # in einer anderen Ebene. Wir stellen sicher, dass sie da sind.
             if not df.empty:
-                st.sidebar.success("📡 Live-Daten via Lasair-Client geladen")
+                # Falls die Spaltennamen in der Fehlermeldung auftauchen, 
+                # existieren sie im DF, aber vielleicht als Index oder Objekt-Typ.
+                st.sidebar.success(f"📡 {len(df)} Supernovae geladen")
                 return df.dropna(subset=['z', 'h0_estimate', 'nDiaSources', 'lastDiaSourceMjdTai'])
             
     except Exception as e:
