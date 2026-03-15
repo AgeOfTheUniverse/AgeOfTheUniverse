@@ -60,9 +60,9 @@ def draw_sidebar(df_raw):
         # Slider für H0 Bereich
         h0_range = st.slider(
             "H₀ Filterbereich", 
-            min_value=20.0, 
+            min_value=h0_min_data, 
             max_value=h0_max_data, 
-            value=(h0_min_data, h0_max_data),
+            value=(20, 150),
             step=1.0
         )
         
