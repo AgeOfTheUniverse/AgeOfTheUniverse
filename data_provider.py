@@ -22,7 +22,7 @@ def fetch_lasair_data():
             
             # WICHTIG: Alles auf klein für die Konsistenz
             df.columns = [c.lower() for c in df.columns]
-            return df.dropna(subset=['h0_estimate', 'z'])
+            return df#.dropna(subset=['h0_estimate', 'z'])
             
     except Exception as e:
         st.sidebar.warning(f"API-Fehler: {e}")
