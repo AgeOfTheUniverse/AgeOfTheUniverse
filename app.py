@@ -6,6 +6,11 @@ import seaborn as sns
 import requests  
 import lasair 
 
+st.set_page_config(
+    page_title="The Age of the Universe",
+    page_icon="🌌",
+    layout="wide"
+)
 st.set_page_config(layout="wide", page_title="Age of the Universe - Live Monitor")
 
 # --- TITEL & EINLEITUNG ---
