@@ -29,47 +29,50 @@ def draw_sidebar(df_raw):
     with st.sidebar:
         st.header("📡 Status & Daten")
         
-        # 1. SCHRITT: Wir arbeiten NUR mit den 16 validen Objekten
-        # Alles andere wird für die Sidebar ignoriert, um Verwirrung zu vermeiden
-        df_valid = df_raw.dropna(subset=['h0_estimate', 'z']).copy()
+        # 1. DER RADIKALSCHNITT: Nur Objekte mit z UND H0 existieren für die Sidebar
+        # Wir ignorieren die 49 "Leichen" komplett für die Histogramme
+        df_plot = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
         
         # METRICS (Ganz oben)
         st.metric("Datenbasis (Gesamt)", len(df_raw)) # Zeigt 65
-        aktive_sn_placeholder = st.empty() # Platzhalter für die dynamische Zahl
-
+        
+        # Platzhalter für die aktive Zahl, damit sie oben steht
+        count_placeholder = st.empty()
+        
         st.divider()
+        st.subheader("Filter-Einstellungen")
 
-        # 2. SCHRITT: SLIDER & HISTOGRAMM SYNCHRONISIEREN
+        # --- A. ROTVERSCHIEBUNG (z) ---
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
-        # Histogramm zeigt NUR DIE VALIDEN (die 16)
         fig_z, ax_z = plt.subplots(figsize=(4, 1.0))
-        if not df_valid.empty:
-            # Hintergrund (Grau): Alle validen Objekte
-            ax_z.hist(df_valid['z'], bins=50, range=(0, 0.1), color="lightgray", alpha=0.4)
-            # Vordergrund (Blau): Nur die, die der Slider übrig lässt
-            df_filtered_z = df_valid[df_valid['z'] >= z_min]
-            ax_z.hist(df_filtered_z['z'], bins=50, range=(0, 0.1), color="#4682B4")
+        if not df_plot.empty:
+            # Wir plotten NUR die 16 validen Objekte
+            ax_z.hist(df_plot['z'], bins=30, range=(0, 0.1), color="lightgray", alpha=0.4)
+            # Blau markieren, was der Slider übrig lässt
+            df_z_active = df_plot[df_plot['z'] >= z_min]
+            ax_z.hist(df_z_active['z'], bins=30, range=(0, 0.1), color="#4682B4")
             
         ax_z.set_xlim(0, 0.1)
         ax_z.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_z)
 
-        # 3. SCHRITT: H0 FILTER
+        # --- B. H0 BEREICH ---
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
-        # Finale Filterung der validen Daten
-        df_final = df_valid[
-            (df_valid['z'] >= z_min) & 
-            (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
-        ]
+        # FINALE FILTERUNG (basierend auf den 16)
+        df_f = df_plot[
+            (df_plot['z'] >= z_min) & 
+            (df_plot['h0_estimate'].between(h0_range[0], h0_range[1]))
+        ].copy()
 
-        # Jetzt die Zahl oben aktualisieren
-        aktive_sn_placeholder.metric("Aktiv & Analysierbar", len(df_final), 
-                                     delta=len(df_final) - len(df_raw))
+        # Update der Zahl ganz oben
+        count_placeholder.metric("Aktiv & Analysierbar", len(df_f), 
+                                 delta=len(df_f) - len(df_raw))
 
-        return z_min, h0_range, 50, df_final, len(df_final)
+        # Rückgabe für die Main-App
+        return z_min, h0_range, 50, df_f, len(df_f)
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
