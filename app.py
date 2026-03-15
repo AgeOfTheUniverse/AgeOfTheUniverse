@@ -119,33 +119,29 @@ def main():
     st.table(vergleich_df)
 
     # --- GRAFIKEN ---
+    # --- GRAFIKEN ---
     col_g1, col_g2 = st.columns(2)
+    
     with col_g1:
-        st.write("### H₀ Verteilung (Elite)")
-        fig1, ax1 = plt.subplots()
-        sns.histplot(df_elite['h0_estimate'], kde=True, ax=ax1, color="skyblue")
-        ax1.axvline(h0_elite, color="orange", linewidth=2, label=f"Median: {h0_elite:.1f}")
-        ax1.legend()
+        # Hier nutzen wir das neue Histogramm mit den 3 Linien
+        fig1 = plots.plot_h0_distribution(df_elite, h0_elite)
         st.pyplot(fig1)
 
     with col_g2:
-        st.write("### H₀ vs. Rotverschiebung")
-        fig2, ax2 = plt.subplots()
-        scatter = ax2.scatter(df_f['z'], df_f['h0_estimate'], alpha=0.4, c=df_f[col_n], cmap='viridis')
-        ax2.set_xlabel("Rotverschiebung (z)")
-        ax2.set_ylabel("H₀")
-        plt.colorbar(scatter, label="Datenqualität")
+        # Hier nutzen wir den Scatterplot mit der Median-Linie
+        # col_n wurde vorher in deiner main bereits definiert
+        fig2 = plots.plot_h0_redshift(df_f, col_n, h0_elite)
         st.pyplot(fig2)
 
     # --- STABILISIERUNG ---
-    st.write("### Chronologische Konvergenz")
     df_k = calc.get_rolling_stats(df_f)
     if 'running_median' in df_k.columns:
-        fig3, ax3 = plt.subplots(figsize=(10, 4))
+        st.write("### Chronologische Konvergenz")
+        # Zeit-Achse finden
         time_x = next((c for c in df_k.columns if c.lower() == 'lastdiasourcemjdtai'), df_k.index)
-        ax3.plot(df_k[time_x], df_k['running_median'], color='purple', linewidth=2)
-        ax3.fill_between(df_k[time_x], df_k['running_median'] - df_k['stderr'], 
-                         df_k['running_median'] + df_k['stderr'], alpha=0.2, color='purple')
+        
+        # Hier nutzen wir den Konvergenz-Plot mit Planck & SH0ES Linien
+        fig3 = plots.plot_convergence(df_k, time_x)
         st.pyplot(fig3)
 
     # --- FOOTER ---
