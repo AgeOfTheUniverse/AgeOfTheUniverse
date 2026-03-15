@@ -37,14 +37,12 @@ def draw_sidebar(df_raw):
         z_min = st.slider("Min. Rotverschiebung (z)", 0.0, 0.1, 0.0, 0.001, format="%.3f")
         
         fig_z, ax_z = plt.subplots(figsize=(4, 0.8))
-        # Wir füllen leere z-Werte mit -1, damit sie bei z_min=0 sichtbar bleiben
-        z_display = df_raw['z'].fillna(-1) 
-        
-        ax_z.hist(z_display, bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
-        # Aktive Auswahl hervorheben
-        df_z_active = df_raw[df_raw['z'].fillna(0) >= z_min]
-        ax_z.hist(df_z_active['z'], bins=50, range=(0, 0.1), color="#4682B4", alpha=0.8)
-        
+        # Wir behandeln NaNs als -1, damit sie bei Slider 0.000 nicht gefiltert werden
+        z_safe = df_raw['z'].fillna(-1)
+        ax_z.hist(z_safe, bins=50, range=(0, 0.1), color="lightgray", alpha=0.3)
+        # Blau markieren, was im Filter ist
+        active_z_mask = (df_raw['z'].fillna(0) >= z_min)
+        ax_z.hist(df_raw[active_z_mask]['z'], bins=50, range=(0, 0.1), color="#4682B4", alpha=0.8)
         ax_z.set_xlim(0, 0.1)
         ax_z.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
@@ -54,42 +52,35 @@ def draw_sidebar(df_raw):
         h0_range = st.slider("H₀ Bereich", 20, 150, (20, 150))
         
         fig_h, ax_h = plt.subplots(figsize=(4, 0.8))
-        # Hintergrund: Alle (auch die ohne Wert)
-        ax_h.hist(df_raw['h0_estimate'].fillna(0), bins=50, range=(20, 150), color="lightgray", alpha=0.3)
-        # Aktiv: Nur die im Bereich
-        df_h_active = df_raw[df_raw['h0_estimate'].fillna(0).between(h0_range[0], h0_range[1])]
-        ax_h.hist(df_h_active['h0_estimate'], bins=50, range=(20, 150), color="#4682B4", alpha=0.8)
-        
+        # Hier ist der Trick: Wir füllen NaNs mit einem Wert INNERHALB des Start-Bereichs
+        h0_safe = df_raw['h0_estimate'].fillna(70) 
+        ax_h.hist(h0_safe, bins=50, range=(20, 150), color="lightgray", alpha=0.3)
+        # Blau für die aktiven
+        active_h0_mask = (df_raw['h0_estimate'].fillna(70).between(h0_range[0], h0_range[1]))
+        ax_h.hist(df_raw[active_h0_mask]['h0_estimate'], bins=50, range=(20, 150), color="#4682B4", alpha=0.8)
         ax_h.set_xlim(20, 150)
         ax_h.axis('off')
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         st.pyplot(fig_h)
 
-        # --- C. FILTER-RECHNUNG OHNE DATENVERLUST ---
-        # Wir filtern so, dass Objekte ohne Wert (NaN) NUR DANN rausfliegen, 
-        # wenn der Slider NICHT auf Minimum steht.
+        # --- C. DIE LOGIK DIE NICHT LÜGT ---
+        # Wir filtern NUR, wenn der Wert existiert UND außerhalb der Range liegt.
+        # Wenn kein Wert existiert (NaN), lassen wir ihn drin (solange Slider auf Default)
         
-        mask_z = (df_raw['z'].fillna(0) >= z_min)
-        mask_h0 = (df_raw['h0_estimate'].fillna(0).between(h0_range[0], h0_range[1]))
-        
-        df_f = df_raw[mask_z & mask_h0].copy()
-        
-        # Elite-Berechnung
-        col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), df_raw.columns[0])
-        qual_p = st.slider("Elite-Schwelle (Top %)", 0, 100, 50)
-        anz_elite = 0
-        if not df_f.empty:
-            anz_elite = len(df_f[df_f[col_n].fillna(0) >= np.percentile(df_f[col_n].fillna(0), qual_p)])
+        # Logik: Behalte wenn (Wert >= z_min) ODER (Wert ist NaN)
+        df_f = df_raw[
+            (df_raw['z'].fillna(1) >= z_min) & 
+            (df_raw['h0_estimate'].fillna(70).between(h0_range[0], h0_range[1]))
+        ].copy()
 
-        # Metrics füllen
+        # Metrics
         with metric_container:
             c1, c2 = st.columns(2)
             c1.metric("Basis", len(df_raw))
-            # Das Delta berechnet sich nun direkt von der 65 weg
+            # HIER MUSS JETZT 65 STEHEN WENN SLIDER AUF LINKS SIND
             c2.metric("Aktiv", len(df_f), delta=len(df_f) - len(df_raw))
-            st.metric("Elite-Auswahl", anz_elite)
 
-        return z_min, h0_range, qual_p, df_f, anz_elite
+        return z_min, h0_range, 50, df_f, len(df_f)
     
 # --- 4. HAUPTSEITE LOGIK ---
 def main():
