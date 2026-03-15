@@ -25,33 +25,35 @@ def load_data():
         
         selected   = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
         tables     = 'objects'
+        # Wir weiten die Suche etwas aus, um mehr als nur 1 Objekt zu finden
         conditions = 'h0_estimate IS NOT NULL AND z > 0'
         
         results = L.query(selected, tables, conditions, limit=1000)
         
         if results:
-            # Falls die API eine Liste von Dictionaries mit 'doc' Struktur liefert:
-            if isinstance(results, list) and len(results) > 0 and 'doc' in results[0]:
-                df = pd.DataFrame([r['doc'] for r in results])
-            else:
-                # Fallback für flache Listen
-                df = pd.DataFrame(results)
-            
-            if not df.empty:
-                # Spaltennamen normalisieren (kleinschreiben)
+            # Check: Sind die Daten im 'doc'-Format verschachtelt?
+            if isinstance(results, list) and len(results) > 0:
+                if isinstance(results[0], dict) and 'doc' in results[0]:
+                    # Wir packen jedes 'doc' aus
+                    df = pd.DataFrame([r['doc'] for r in results])
+                else:
+                    # Normales flaches Format
+                    df = pd.DataFrame(results)
+                
+                # Spaltennamen auf Kleinschreibung normieren
                 df.columns = [c.lower() for c in df.columns]
                 
-                # Prüfen, welche Spalten wirklich da sind, um Absturz zu vermeiden
-                available_cols = df.columns.tolist()
-                subset = [c for c in ['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'] if c in available_cols]
+                # Nur Spalten filtern, die auch wirklich existieren
+                valid_cols = [c for c in ['z', 'h0_estimate', 'ndiasources', 'lastdiasourcemjdtai'] if c in df.columns]
                 
-                st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
-                return df.dropna(subset=subset)
+                if not df.empty:
+                    st.sidebar.success(f"📡 {len(df)} Live-Objekte geladen")
+                    return df.dropna(subset=valid_cols)
         
     except Exception as e:
         st.sidebar.warning(f"Lasair-Client Fehler: {e}")
 
-    # BACKUP-RETTUNGSANKER
+    # Fallback auf die lokale CSV
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
 df_raw = load_data()
 
