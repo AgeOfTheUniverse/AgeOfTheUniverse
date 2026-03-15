@@ -36,18 +36,40 @@ def draw_sidebar(df):
         return z_min, h0_range, qual_p
 
 # 4. Haupt-Layout
+# 4. Haupt-Layout
 def main():
     st.title("🔭 age-of-the-universe.com")
     st.markdown("### Echtzeit-Kosmologie Monitor")
     
     z_min, h0_range, qual_p = draw_sidebar(df_raw)
     
-    # Filterung anwenden
+    # --- NEU: DATEN-METRIKEN ANZEIGEN ---
+    # Filterung vorbereiten
     df_f = df_raw[(df_raw['z'] > z_min) & (df_raw['h0_estimate'].between(h0_range[0], h0_range[1]))].copy()
+    
+    # Drei Spalten für die Kennzahlen
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.metric("Supernovae (Gesamt)", len(df_raw))
+    with m2:
+        st.metric("Nach Filtern", len(df_f), delta=f"{len(df_f) - len(df_raw)}", delta_color="normal")
+    with m3:
+        # Wir berechnen kurz die Elite-Menge für die Anzeige
+        col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
+        if not df_f.empty:
+            schwelle = np.percentile(df_f[col_n], qual_p)
+            anzahl_elite = len(df_f[df_f[col_n] >= schwelle])
+            st.metric("Elite-Daten", anzahl_elite)
+        else:
+            st.metric("Elite-Daten", 0)
+
+    st.divider()
 
     if df_f.empty:
         st.error("Keine Daten im Filterbereich gefunden.")
         return
+    
+    # ... hier geht es weiter mit der Elite-Berechnung (h0_elite etc.) und der Tabelle ...
 
     # Elite-Berechnung (Nutzt nDiaSources Spalte)
     col_n = next((c for c in df_f.columns if c.lower() == 'ndiasources'), df_f.columns[0])
