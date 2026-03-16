@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import plots
-import about_project 
+from about_project import render_about_project
 
 # Eigene Module importieren
 from data_provider import fetch_lasair_data
