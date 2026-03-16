@@ -51,7 +51,7 @@ def draw_sidebar(df_raw):
         # Slider für Rotverschiebung
         # Voreingestellt auf 0.0, damit erst mal alles Sichtbare drin bleibt
         z_min = st.slider(
-            "Min. Rotverschiebung (z)", 
+            "Min. Redshift (z)", 
             min_value=0.0, 
             max_value=z_max_data, 
             value=0.015, 
@@ -61,7 +61,7 @@ def draw_sidebar(df_raw):
         
         # Slider für H0 Bereich
         h0_range = st.slider(
-            "H₀ Filterbereich", 
+            "H₀ Filter Range", 
             min_value=20.0, 
             max_value=200.0, 
             value=(50.0, 150.0), # <-- Sinnvoller Default
@@ -69,7 +69,7 @@ def draw_sidebar(df_raw):
         )
         
         # Slider für Qualität (Elite)
-        qual_p = st.slider("Qualitäts-Schwelle (Top %)", 0, 100, 50)
+        qual_p = st.slider("Qualiity Threshhold (Top %)", 0, 100, 50)
         
         # 3. FILTERUNG ANWENDEN
         df_f = df_valid[
@@ -86,7 +86,7 @@ def draw_sidebar(df_raw):
 
         # Zahl aktualisieren
         count_placeholder.metric("Used after Filter application", len(df_f), delta=len(df_f) - len(df_raw))
-        st.metric("Davon Elite", anzahl_elite)
+        st.metric("Elite Selection", anzahl_elite)
 
         return z_min, h0_range, qual_p, df_f, anzahl_elite
     
@@ -141,7 +141,7 @@ def main():
         vergleich_df = pd.DataFrame({
             "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
             "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
-            "Rubin (AAlllle)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
+            "Rubin (All)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
             "Elite (Your Choice)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
         }, index=["H₀ (km/s/Mpc)", "Age of the Universe (Gyr)"])
         st.table(vergleich_df)
