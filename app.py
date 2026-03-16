@@ -92,17 +92,49 @@ def draw_sidebar(df_raw):
     
 # --- 4. HAUPTSEITE LOGIK ---
 def render_about_me():
-    st.header("About Me")
-    col1, col2 = st.columns([1, 2])
+    st.title("About Me")
+    
+    col1, col2 = st.columns([1, 2], gap="large")
+    
     with col1:
-        st.info("### Contact\n**Rolf Bense**\nJork, Germany\n\n📧 rolf.bense@web.de")
-    with col2:
-        st.write("### The Person behind the Project")
-        st.write("""
-        I am an astronomy enthusiast dedicated to making complex cosmological data accessible 
-        to everyone. This project is a result of my passion for understanding the fundamental 
-        constants of our universe.
+        # Placeholder for a profile picture
+        # If you have a photo, uncomment the line below:
+        # st.image("your_photo.jpg", caption="Rolf Bense", use_column_width=True)
+        
+        st.markdown("### Contact Details")
+        st.info("""
+        **Rolf Bense** 📍 Jork, Germany  
+        📧 [rolf.bense@web.de](mailto:rolf.bense@web.de)
         """)
+        
+        st.markdown("### Interests")
+        st.write("🔭 Observational Cosmology")
+        st.write("💻 Data Science & Python")
+        st.write("🌌 Open Science Communication")
+
+    with col2:
+        st.markdown("### The Person Behind the Project")
+        st.write("""
+        Hi, I'm Rolf. I am a passionate astronomy enthusiast based in Northern Germany. 
+        My fascination with the stars led me to the question that has occupied the greatest 
+        minds in physics for decades: **How fast is our universe really expanding?**
+        
+        With the advent of next-generation observatories like the **Vera C. Rubin Observatory**, 
+        we are entering a new era of "Big Data" in astronomy. I built this platform to bridge 
+        the gap between raw scientific data streams and interactive visualization.
+        """)
+        
+        st.markdown("### Why I Built This")
+        st.write("""
+        The "Hubble Tension"—the discrepancy between measurements from the early and late 
+        universe—is one of the most exciting mysteries in modern science. I wanted to create 
+        a tool that allows anyone to:
+        * Explore real-time supernova data.
+        * Understand the impact of data quality on cosmological constants.
+        * Calculate the age of the universe with just a few clicks.
+        """)
+        
+        st.success("✨ *\"Equipped with his five senses, man explores the universe around him and calls the adventure Science.\"* – Edwin Hubble")
 
 def main():
     # --- NAVIGATION IN DER SIDEBAR ---
