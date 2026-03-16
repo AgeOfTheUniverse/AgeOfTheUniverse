@@ -4,7 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-import plots 
+import plots
+import about_project 
 
 # Eigene Module importieren
 from data_provider import fetch_lasair_data
@@ -90,38 +91,25 @@ def draw_sidebar(df_raw):
         return z_min, h0_range, qual_p, df_f, anzahl_elite
     
 # --- 4. HAUPTSEITE LOGIK ---
-def render_about_page():
-    """Diese Funktion zeigt die Informationen über dich und das Projekt."""
-    st.header("Über das Projekt & Kontakt")
-    
+def render_about_me():
+    st.header("About Me")
     col1, col2 = st.columns([1, 2])
-    
     with col1:
-        st.info("### Kontakt\n**Rolf Bense**\nJork, Deutschland\n\n📧 rolf.bense@web.de")
-        st.write("---")
-        st.write("### Datenquelle")
-        st.write("Diese Echtzeit-Daten stammen vom **Vera C. Rubin Observatory (Lasair)**.")
-
+        st.info("### Contact\n**Rolf Bense**\nJork, Germany\n\n📧 rolf.bense@web.de")
     with col2:
-        st.write("### Die Mission")
+        st.write("### The Person behind the Project")
         st.write("""
-        Willkommen bei **age-of-the-universe.com**. Diese Seite ist entstanden, um die faszinierende Debatte 
-        um die Hubble-Konstante ($H_0$) interaktiv erlebbar zu machen. 
-        
-        Hier kannst du selbst entscheiden, welche Supernovae-Daten vom Typ Ia vertrauenswürdig sind. 
-        Durch das Filtern nach Rotverschiebung und Datenqualität siehst du in Echtzeit, wie sich 
-        die Schätzung des Weltalters verschiebt. 
-        
-        Viel Spaß beim Erforschen der kosmischen Expansion!
+        I am an astronomy enthusiast dedicated to making complex cosmological data accessible 
+        to everyone. This project is a result of my passion for understanding the fundamental 
+        constants of our universe.
         """)
-        st.success("🔭 Astronomie ist für alle da – dieses Projekt ist ein privater Beitrag zur Wissenschaftskommunikation.")
 
 def main():
     # --- NAVIGATION IN DER SIDEBAR ---
     with st.sidebar:
         # Ein kleines Logo oder Icon oben in der Sidebar macht sich gut
         st.title("🌌 Navigation")
-        page = st.selectbox("Wähle eine Seite:", ["Analysis", "About the Project"],
+        page = st.selectbox("Wähle eine Seite:", ["Analysis", "About the Project", "About Me"],
                             label_visibility="collapsed"
                             )
         st.divider()
@@ -175,9 +163,13 @@ def main():
             fig3 = plots.plot_convergence(df_k, time_x)
             st.pyplot(fig3)
 
-    else:
-        # --- ÜBER MICH SEITE ---
-        render_about_page()
+    elif page == "About the Project":
+        # Aufruf der neuen englischen Seite aus der separaten Datei
+        render_about_project()
+
+    elif page == "About Me":
+        render_about_me()
+
 
     # --- EINHEITLICHER FOOTER ---
     st.divider()
