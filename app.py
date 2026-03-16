@@ -137,7 +137,7 @@ def main():
         h0_alle = df_f['h0_estimate'].median()
 
         # --- TABELLE ---
-        st.subheader("Modellvergleich")
+        st.subheader("Model Comparison")
         vergleich_df = pd.DataFrame({
             "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
             "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
