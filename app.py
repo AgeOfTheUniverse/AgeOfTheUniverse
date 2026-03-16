@@ -120,13 +120,13 @@ def main():
     if page == "Analysis":
         # --- DEIN BISHERIGER ANALYSE-CODE ---
         st.title("🔭 age-of-the-universe.com")
-        st.markdown("### Echtzeit-Analyse der kosmischen Expansion")
+        st.markdown("### ### Real-time Analysis of Cosmic Expansion")
         
         # Sidebar aufrufen (Filter erscheinen nur bei Analyse)
         z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
 
         if df_f.empty:
-            st.error("Keine Daten im gewählten Filterbereich gefunden. Bitte Slider anpassen.")
+            st.error("No data found for the selected filters. Please adjust the sliders.")
             return
 
         # Elite-Berechnung
@@ -141,9 +141,9 @@ def main():
         vergleich_df = pd.DataFrame({
             "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
             "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
-            "Rubin (Alle)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
-            "Elite (Deine Wahl)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
-        }, index=["H₀ (km/s/Mpc)", "Weltalter (Mrd. J.)"])
+            "Rubin (AAlllle)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
+            "Elite (Your Choice)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
+        }, index=["H₀ (km/s/Mpc)", "Age of the Universe (Gyr)"])
         st.table(vergleich_df)
 
         # --- GRAFIKEN ---
@@ -158,7 +158,7 @@ def main():
         # --- STABILISIERUNG ---
         df_k = calc.get_rolling_stats(df_f)
         if 'running_median' in df_k.columns:
-            st.write("### Chronologische Konvergenz")
+            st.write("### Chronological Convergence")
             time_x = next((c for c in df_k.columns if c.lower() == 'lastdiasourcemjdtai'), df_k.index)
             fig3 = plots.plot_convergence(df_k, time_x)
             st.pyplot(fig3)
