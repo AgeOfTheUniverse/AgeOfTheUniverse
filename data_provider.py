@@ -12,7 +12,7 @@ def fetch_lasair_data():
         tables = 'objects'
         conditions = ''
         
-        results = L.query(selected, tables, conditions, limit=1000)
+        results = L.query(selected, tables, conditions, limit=10000)
         
         if results and isinstance(results, list):
             if len(results) > 0 and isinstance(results[0], dict) and 'doc' in results[0]:
