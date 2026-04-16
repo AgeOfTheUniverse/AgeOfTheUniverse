@@ -26,13 +26,12 @@ def load_data():
 def draw_sidebar(df_raw):
     st.sidebar.header("📡 Status & Filters")
     
+    # Verfügbare Spalten prüfen
     available_cols = df_raw.columns.tolist()
+    has_science = all(c in available_cols for c in ['z', 'h0_estimate'])
     
-    # Prüfen, ob wissenschaftliche Daten für SN Ia vorhanden sind
-    has_science_data = all(c in available_cols for c in ['z', 'h0_estimate'])
-    
-    if has_science_data:
-        # Nur Zeilen behalten, die wirklich z und h0 haben
+    if has_science:
+        # Nur Einträge mit echten Werten für die Analyse nutzen
         df_valid = df_raw.dropna(subset=['z', 'h0_estimate']).copy()
         df_valid = df_valid[(df_valid['z'] > 0) & (df_valid['h0_estimate'] > 0)]
     else:
@@ -42,7 +41,6 @@ def draw_sidebar(df_raw):
     st.sidebar.markdown("**Confirmed SN Type 1a**")
     st.sidebar.metric("", len(df_valid))
     
-    # Die Entdeckungs-Grafik (Graue vs. Blaue Linie)
     with st.sidebar.expander("Show Discovery Timeline", expanded=False):
         fig_side = plots.plot_discovery_stats(df_raw)
         st.pyplot(fig_side)
@@ -56,14 +54,17 @@ def draw_sidebar(df_raw):
     h0_range = st.sidebar.slider("H₀ Filter Range", 20.0, 200.0, (50.0, 150.0), 1.0)
     qual_p = st.sidebar.slider("Quality Threshold (Top %)", 0, 100, 50)
     
-    # FILTERUNG
-    df_f = df_valid[
-        (df_valid['z'] >= z_min) & 
-        (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
-    ].copy()
+    # FILTERUNG (Hier war der KeyError - jetzt abgesichert!)
+    if not df_valid.empty:
+        df_f = df_valid[
+            (df_valid['z'] >= z_min) & 
+            (df_valid['h0_estimate'].between(h0_range[0], h0_range[1]))
+        ].copy()
+    else:
+        df_f = pd.DataFrame(columns=available_cols)
 
     # Elite-Selektion
-    col_n = next((c for c in df_raw.columns if c.lower() == 'ndiasources'), None)
+    col_n = next((c for c in available_cols if c.lower() == 'ndiasources'), None)
     anzahl_elite = 0
     if not df_f.empty and col_n:
         df_f[col_n] = df_f[col_n].fillna(0)
@@ -81,12 +82,9 @@ def render_about_me():
     with col1:
         st.markdown("### Contact Details")
         st.info("**Rolf Bense** 📍 Jork, Germany\n\n📧 [rolf.bense@web.de](mailto:rolf.bense@web.de)")
-        st.markdown("### Interests")
-        st.write("🔭 Observational Cosmology\n💻 Data Science & Python\n🌌 Open Science Communication")
     with col2:
         st.markdown("### The Person Behind the Project")
         st.write("Hi, I'm Rolf. I built this platform to bridge the gap between raw scientific data streams and interactive visualization.")
-        st.success("✨ *\"Equipped with his five senses, man explores the universe around him and calls the adventure Science.\"* – Edwin Hubble")
 
 def main():
     # NAVIGATION
@@ -104,7 +102,7 @@ def main():
         z_min, h0_range, qual_p, df_f, anzahl_elite = draw_sidebar(df_raw)
 
         if df_f.empty:
-            st.warning("No validated Supernovae found for current filter settings. Try lowering the 'Min. Redshift'.")
+            st.warning("Currently waiting for new validated Supernovae from the Rubin Observatory stream. The Timeline shows recent alerts (gray), but no new scientific labels have been assigned yet.")
             return
 
         # BERECHNUNGEN
@@ -120,7 +118,6 @@ def main():
         vergleich_df = pd.DataFrame({
             "Planck (CMB)": ["67.4", f"{calc.calculate_universe_age(67.4, 0.95):.2f}"],
             "SH0ES (SN Ia)": ["73.0", f"{calc.calculate_universe_age(73.0, 0.96):.2f}"],
-            "Rubin (All)": [f"{h0_alle:.1f}", f"{calc.calculate_universe_age(h0_alle, 0.96):.2f}"],
             "Elite (Your Choice)": [f"{h0_elite:.1f}", f"{calc.calculate_universe_age(h0_elite):.2f}"]
         }, index=["H₀ (km/s/Mpc)", "Age of the Universe (Gyr)"])
         st.table(vergleich_df)
