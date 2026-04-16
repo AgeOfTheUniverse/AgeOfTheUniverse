@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import lasair
 
-def fetch_lasair_data():
+def fetch_lasair_data_old():
     """Holt die aktuellsten Daten von Lasair."""
     try:
         token = st.secrets["LASAIR_TOKEN"]
