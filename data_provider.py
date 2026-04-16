@@ -3,34 +3,30 @@ import pandas as pd
 import lasair
 
 def fetch_lasair_data():
-    """Holt die aktuellsten Daten von Lasair."""
     try:
         token = st.secrets["LASAIR_TOKEN"]
         L = lasair.lasair_client(token, endpoint='https://lasair-lsst.lsst.ac.uk/api')
         
-        # 1. Spalten definieren
+        # Wir versuchen es ohne Filter und mit einer sehr großen Zahl, 
+        # um zu sehen, ob überhaupt neuere Objekte existieren
         selected = 'objectId, z, h0_estimate, nDiaSources, lastDiaSourceMjdTai'
         tables = 'objects'
+        # Wir entfernen h0_estimate > 0 erst mal, um zu sehen ob ÜBERHAUPT neue SN da sind
+        conditions = "ORDER BY lastDiaSourceMjdTai DESC"
         
-        # 2. Bedingungen: Nur Objekte mit Daten und Sortierung nach Datum (DESC = Absteigend)
-        # Wir fragen die neuesten 1000 Objekte ab, die einen H0-Wert haben
-        conditions = "h0_estimate > 0 AND z > 0 ORDER BY lastDiaSourceMjdTai DESC"
+        results = L.query(selected, tables, conditions, limit=2000)
         
-        results = L.query(selected, tables, conditions, limit=1000)
-        
-        if results and isinstance(results, list):
-            if len(results) > 0 and isinstance(results[0], dict) and 'doc' in results[0]:
-                df = pd.DataFrame([r['doc'] for r in results])
-            else:
-                df = pd.DataFrame(results)
-            
+        if results:
+            df = pd.DataFrame([r['doc'] if 'doc' in r else r for r in results])
             df.columns = [c.lower() for c in df.columns]
+            
+            # Diagnose-Ausgabe nur für dich in der Sidebar (kannst du später löschen)
+            latest_mjd = df['lastdiasourcemjdtai'].max()
+            st.sidebar.write(f"Raw Max MJD: {latest_mjd}") 
+            
             return df
             
     except Exception as e:
         st.sidebar.warning(f"API-Fehler: {e}")
     
-    # Backup laden falls API scheitert
-    df_backup = pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv')
-    df_backup.columns = [c.lower() for c in df_backup.columns]
-    return df_backup
+    return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv').rename(columns=str.lower)
