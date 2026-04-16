@@ -107,6 +107,12 @@ def main():
         st.divider()
 
     df_raw = load_data()
+    # DIAGNOSE: Schreibe das in die Sidebar, um zu sehen, was ankommt
+    with st.sidebar:
+        st.write(f"DEBUG: Rows from API: {len(df_raw)}")
+        # Prüfen, wie viele davon H0 haben
+        has_h0 = df_raw['h0_estimate'].notna().sum()
+        st.write(f"DEBUG: Objects with H0: {has_h0}")
 
     if page == "Analysis":
         st.title("🔭 age-of-the-universe.com")
