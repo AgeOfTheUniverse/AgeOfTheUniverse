@@ -54,32 +54,33 @@ def plot_convergence(df_k, time_col):
     return fig
 
 def plot_discovery_stats(df_raw):
-    """Shows the cumulative growth of discovered objects."""
-    fig, ax = plt.subplots(figsize=(10, 4)) # Etwas höher für bessere Lesbarkeit
+    fig, ax = plt.subplots(figsize=(10, 4))
+    time_col = 'lastdiasourcemjdtai'
     
-    # Identify time column
-    time_col = next((c for c in df_raw.columns if c.lower() == 'lastdiasourcemjdtai'), None)
-    
-    if time_col and not df_raw.empty:
-        # Sort data by time
+    if time_col in df_raw.columns:
         df_sorted = df_raw.sort_values(time_col)
-        # Create cumulative count
-        df_sorted['cumulative_count'] = range(1, len(df_sorted) + 1)
         
-        # Convert MJD to datetime
-        plot_dates = [datetime(1858, 11, 17) + timedelta(days=float(x)) for x in df_sorted[time_col]]
+        # 1. Kurve: Alle Objekte
+        df_sorted['all_count'] = range(1, len(df_sorted) + 1)
         
-        ax.plot(plot_dates, df_sorted['cumulative_count'], color='#1f77b4', linewidth=2, label="Confirmed SN Ia")
-        ax.fill_between(plot_dates, df_sorted['cumulative_count'], alpha=0.2, color='#1f77b4')
+        # 2. Kurve: Nur SN Ia (Objekte mit H0 und Z)
+        df_snia = df_sorted[(df_sorted['h0_estimate'] > 0) & (df_sorted['z'] > 0)].copy()
+        df_snia['sn_count'] = range(1, len(df_snia) + 1)
+
+        def to_date(mjd):
+            return datetime(1858, 11, 17) + timedelta(days=float(mjd))
+
+        dates_all = [to_date(x) for x in df_sorted[time_col]]
+        dates_sn = [to_date(x) for x in df_snia[time_col]]
+
+        ax.plot(dates_all, df_sorted['all_count'], label="All Alerts", color="gray", alpha=0.5)
+        if not df_snia.empty:
+            ax.plot(dates_sn, df_snia['sn_count'], label="Confirmed SN Ia", color="#1f77b4", linewidth=2)
         
-        # Formatting
-        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
-        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%y'))
-        fig.autofmt_xdate()
-        
-        ax.set_title("Cumulative Discoveries over Time", fontsize=12)
-        ax.set_ylabel("Total Count")
-        ax.grid(True, alpha=0.3)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m'))
+        ax.set_title("Detection Timeline: Total vs. Confirmed SN Ia")
+        ax.legend()
+        plt.xticks(rotation=45)
     
     plt.tight_layout()
     return fig
