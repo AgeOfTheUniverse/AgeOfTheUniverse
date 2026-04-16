@@ -33,7 +33,7 @@ def plot_convergence(df_k, time_col):
     fig, ax = plt.subplots(figsize=(10, 4))
     
     def mjd_to_datetime(mjd):
-        return datetime(1858, 11, 17) + timedelta(days=mjd)
+        return datetime(1858, 11, 17) + timedelta(days=float(mjd))
     
     plot_dates = [mjd_to_datetime(x) for x in df_k[time_col]]
     
@@ -51,4 +51,35 @@ def plot_convergence(df_k, time_col):
     ax.set_title("Chronological Convergence")
     ax.set_ylabel("H₀ (km/s/Mpc)")
     ax.legend(loc="upper left")
+    return fig
+
+def plot_discovery_stats(df_raw):
+    """Shows the cumulative growth of discovered objects."""
+    fig, ax = plt.subplots(figsize=(10, 4)) # Etwas höher für bessere Lesbarkeit
+    
+    # Identify time column
+    time_col = next((c for c in df_raw.columns if c.lower() == 'lastdiasourcemjdtai'), None)
+    
+    if time_col and not df_raw.empty:
+        # Sort data by time
+        df_sorted = df_raw.sort_values(time_col)
+        # Create cumulative count
+        df_sorted['cumulative_count'] = range(1, len(df_sorted) + 1)
+        
+        # Convert MJD to datetime
+        plot_dates = [datetime(1858, 11, 17) + timedelta(days=float(x)) for x in df_sorted[time_col]]
+        
+        ax.plot(plot_dates, df_sorted['cumulative_count'], color='#1f77b4', linewidth=2, label="Confirmed SN Ia")
+        ax.fill_between(plot_dates, df_sorted['cumulative_count'], alpha=0.2, color='#1f77b4')
+        
+        # Formatting
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m.%y'))
+        fig.autofmt_xdate()
+        
+        ax.set_title("Cumulative Discoveries over Time", fontsize=12)
+        ax.set_ylabel("Total Count")
+        ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
     return fig
