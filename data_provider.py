@@ -20,6 +20,7 @@ def fetch_lasair_data():
             return df
             
     except Exception as e:
-        st.sidebar.error(f"API-Fehler: {e}")
+        st.error(f"Kritischer API-Fehler: {e}")
+        st.stop() # Die App hält hier an, damit wir den Fehler lesen können
     
     return pd.read_csv('lasair_603TypeIaSupernovae_filter_results.csv').rename(columns=str.lower)
